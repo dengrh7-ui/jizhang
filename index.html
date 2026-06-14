@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1f6feb">
+<title>健身训练记录</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="app-header">
+  <h1>💪 健身训练记录</h1>
+  <p class="subtitle">记录每次训练 · 自定义训练项目 · 掌握训练要点</p>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="log">训练记录</button>
+  <button class="tab-btn" data-tab="programs">训练项目</button>
+  <button class="tab-btn" data-tab="tips">训练要点</button>
+</nav>
+
+<main>
+  <!-- ========== 训练记录 ========== -->
+  <section id="tab-log" class="tab-panel active">
+    <div class="card">
+      <h2>开始新的训练</h2>
+      <div class="form-row">
+        <label>训练项目</label>
+        <select id="session-program"></select>
+      </div>
+      <div class="form-row">
+        <label>训练日期</label>
+        <input type="date" id="session-date">
+      </div>
+      <button class="btn primary" id="start-session">+ 创建训练</button>
+    </div>
+
+    <div id="sessions-list"></div>
+  </section>
+
+  <!-- ========== 训练项目 ========== -->
+  <section id="tab-programs" class="tab-panel">
+    <div class="card">
+      <h2>自定义训练项目</h2>
+      <p class="hint">创建你自己的训练分类，例如：胸部训练、腿部训练、肩部训练、功能性训练、手臂训练。</p>
+      <div class="form-row">
+        <label>项目名称</label>
+        <input type="text" id="program-name" placeholder="例如：背部训练">
+      </div>
+      <div class="form-row">
+        <label>包含动作（用逗号分隔，可选）</label>
+        <input type="text" id="program-exercises" placeholder="例如：引体向上, 杠铃划船, 高位下拉">
+      </div>
+      <button class="btn primary" id="add-program">+ 添加项目</button>
+    </div>
+
+    <div id="programs-list"></div>
+  </section>
+
+  <!-- ========== 训练要点 ========== -->
+  <section id="tab-tips" class="tab-panel">
+    <div class="card">
+      <h2>训练要点</h2>
+      <p class="hint">记录训练组数建议、训练要点和关键技巧。</p>
+      <div class="form-row">
+        <label>标题</label>
+        <input type="text" id="tip-title" placeholder="例如：卧推关键技巧">
+      </div>
+      <div class="form-row">
+        <label>分类</label>
+        <select id="tip-category">
+          <option value="组数建议">训练组数建议</option>
+          <option value="训练要点">训练要点</option>
+          <option value="关键技巧">关键技巧</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>内容</label>
+        <textarea id="tip-content" rows="3" placeholder="写下你的要点..."></textarea>
+      </div>
+      <button class="btn primary" id="add-tip">+ 添加要点</button>
+    </div>
+
+    <div class="tip-filters">
+      <button class="chip active" data-filter="全部">全部</button>
+      <button class="chip" data-filter="组数建议">组数建议</button>
+      <button class="chip" data-filter="训练要点">训练要点</button>
+      <button class="chip" data-filter="关键技巧">关键技巧</button>
+    </div>
+    <div id="tips-list"></div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
