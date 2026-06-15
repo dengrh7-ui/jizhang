@@ -557,6 +557,64 @@ document.getElementById('cal-next').addEventListener('click', () => {
   renderCalendar();
 });
 
+/* ============================================================
+   AI 教练（运动 / 营养）— 调用本地后端 /api/coach
+   ============================================================ */
+let coachMode = '运动';
+
+document.querySelectorAll('[data-coach-mode]').forEach(c =>
+  c.addEventListener('click', () => {
+    document.querySelectorAll('[data-coach-mode]').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    coachMode = c.dataset.coachMode;
+  }));
+
+// 把近期训练记录整理成给 Claude 的文字上下文
+function buildTrainingContext() {
+  return data.sessions.slice(0, 5).map(s => {
+    const lines = s.exercises.map(ex => {
+      const done = ex.sets.filter(set => Number(set.weight) > 0 || Number(set.reps) > 0)
+        .map(set => `${set.weight || 0}kg×${set.reps || 0}`).join(', ');
+      return `  - ${ex.name}：${done || '未记录'}`;
+    }).join('\n');
+    return `${s.date} ${s.programName}\n${lines}`;
+  }).join('\n');
+}
+
+document.getElementById('coach-send').addEventListener('click', async () => {
+  const input = document.getElementById('coach-input');
+  const message = input.value.trim();
+  const box = document.getElementById('coach-response');
+  if (!message) { alert('请输入问题'); return; }
+
+  const useData = document.getElementById('coach-use-data').checked;
+  box.innerHTML = '<div class="card"><div class="empty">正在思考…</div></div>';
+
+  try {
+    const resp = await fetch('/api/coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: coachMode,
+        message,
+        context: useData ? buildTrainingContext() : '',
+      }),
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || '请求失败');
+    box.innerHTML = `<div class="card">
+      <span class="badge 训练要点">${esc(coachMode)}建议</span>
+      <div class="content" style="white-space:pre-wrap;font-size:.92rem;margin-top:6px">${esc(result.text)}</div>
+    </div>`;
+  } catch (e) {
+    box.innerHTML = `<div class="card"><div class="content" style="color:var(--danger)">
+      出错了：${esc(e.message)}<br><br>
+      若提示无法连接，请确认已用 <code>node server.js</code> 启动后端，
+      并配置了 ANTHROPIC_API_KEY（详见 README）。直接用 python 静态服务器或双击打开时，AI 助手不可用。
+    </div></div>`;
+  }
+});
+
 /* ---------- 选项卡切换时刷新对应内容 ---------- */
 document.querySelector('.tab-btn[data-tab="stats"]').addEventListener('click', renderStats);
 document.querySelector('.tab-btn[data-tab="calendar"]').addEventListener('click', renderCalendar);

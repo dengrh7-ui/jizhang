@@ -42,16 +42,37 @@
 - 苹果生态风格的极简浅色界面，分段控件式选项卡，柔和卡片阴影
 - 字体优先使用 **Cambria**（未安装时回退到 Songti/Georgia 等衬线字体）
 
-## 关于「Apple 健康 / Apple Watch」与「Claude 运动·营养 skills」
+### 6. AI 教练（运动 / 营养）
+由 Claude 提供建议，分「运动建议」与「营养建议」两个专门角色，可勾选「结合我的近期训练记录」获得个性化回答。
+此功能需启动下方的轻量后端（API Key 仅保存在后端，前端不接触）。
 
-这两项**无法在纯网页应用中实现**，原因是平台限制：
+## 启动 AI 教练（需要后端）
 
-- **Apple 健康 / Apple Watch**：HealthKit 仅对原生 iOS App（Swift/SwiftUI + HealthKit 权限）开放，
-  网页没有任何 API 可读取健康数据。要实现需把本应用做成原生 iOS App，或用 Capacitor 等原生壳封装。
-- **Claude 运动 / 营养 skills**：Claude 运行在 Claude API/Claude Code 环境，网页需要一个后端服务器
-  并使用 Anthropic API Key（密钥不能放在前端）。这会从「纯前端」变为「前端 + 后端」架构。
+AI 教练需要一个零依赖的本地后端（`server.js`，需 **Node 18+**）来安全代理调用 Claude：
 
-如需推进，请参考上述方向；当前版本聚焦于本地可离线使用的训练记录。
+```bash
+# 1) 设置你的 Anthropic API Key（密钥只存在于后端环境变量）
+export ANTHROPIC_API_KEY=sk-ant-xxxxx
+# 可选：指定模型，默认 claude-sonnet-4-6
+# export CLAUDE_MODEL=claude-sonnet-4-6
+
+# 2) 启动（同时托管网页与 /api/coach 接口）
+node server.js
+
+# 3) 浏览器访问
+#    http://localhost:8000
+```
+
+> 说明：用 `python3 -m http.server` 或双击打开网页时，**记录/日历/统计等本地功能全部可用**，
+> 仅「AI 教练」因为没有后端而不可用。需要 AI 教练时改用 `node server.js` 启动即可。
+> 获取 API Key：https://console.anthropic.com/
+
+## 关于「Apple 健康 / Apple Watch」
+
+按当前方案**保持网页版**，暂不接入。原因是平台限制：HealthKit 仅对原生 iOS App
+（Swift/SwiftUI + HealthKit 权限）开放，网页没有任何 API 可读取健康/手表数据。
+健康相关数据目前请手动记录。若未来要接入，可考虑用 Capacitor 把本网页封装为原生 App
+再写 HealthKit 插件，或重写为原生 iOS App。
 
 ## 使用方法
 
@@ -74,3 +95,4 @@ python3 -m http.server 8000
 - `index.html` — 页面结构
 - `styles.css` — 样式（苹果风极简浅色主题，移动端友好）
 - `app.js` — 应用逻辑与本地存储
+- `server.js` — 零依赖本地后端：托管网页 + 安全代理调用 Claude（AI 教练）
