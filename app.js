@@ -482,8 +482,84 @@ document.getElementById('import-file').addEventListener('change', e => {
   reader.readAsText(file);
 });
 
-/* ---------- 选项卡切换时刷新统计 ---------- */
+/* ============================================================
+   运动日历 (Calendar)
+   ============================================================ */
+let calYear, calMonth, calSelected = null;
+const MONTH_NAMES = ['一月', '二月', '三月', '四月', '五月', '六月',
+  '七月', '八月', '九月', '十月', '十一月', '十二月'];
+
+function renderCalendar() {
+  const now = new Date();
+  if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+
+  document.getElementById('cal-title').textContent = `${calYear} 年 ${MONTH_NAMES[calMonth]}`;
+
+  // 统计每天的训练次数
+  const counts = {};
+  data.sessions.forEach(s => { counts[s.date] = (counts[s.date] || 0) + 1; });
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;        // 周一为第一列
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayKey = todayStr();
+
+  let cells = '';
+  for (let i = 0; i < startOffset; i++) cells += '<div class="cal-cell blank"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const cls = ['cal-cell'];
+    if (counts[key]) cls.push('has-workout');
+    if (key === todayKey) cls.push('today');
+    if (key === calSelected) cls.push('selected');
+    cells += `<div class="${cls.join(' ')}" data-date="${key}">
+      <span>${d}</span>${counts[key] ? '<span class="cal-dot"></span>' : ''}
+    </div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = cells;
+
+  document.querySelectorAll('#cal-grid .cal-cell.has-workout').forEach(c =>
+    c.addEventListener('click', () => {
+      calSelected = c.dataset.date;
+      renderCalendar();
+      renderCalDetail();
+    }));
+
+  renderCalDetail();
+}
+
+function renderCalDetail() {
+  const box = document.getElementById('cal-day-detail');
+  if (!calSelected) { box.innerHTML = ''; return; }
+  const sessions = data.sessions.filter(s => s.date === calSelected);
+  if (!sessions.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="card"><h2>${esc(calSelected)} 的训练</h2>
+    ${sessions.map(s => `
+      <div class="exercise">
+        <div class="exercise-head"><span class="name">${esc(s.programName)}</span></div>
+        ${s.exercises.map(ex => {
+          const done = ex.sets.filter(set => Number(set.weight) > 0 || Number(set.reps) > 0);
+          return `<div style="font-size:.85rem;margin:4px 0;color:var(--muted)">
+            ${esc(ex.name)}：${done.length
+              ? done.map(set => `${set.weight || 0}kg×${set.reps || 0}`).join('，')
+              : '未记录组数'}</div>`;
+        }).join('')}
+      </div>`).join('')}
+  </div>`;
+}
+
+document.getElementById('cal-prev').addEventListener('click', () => {
+  if (--calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+});
+document.getElementById('cal-next').addEventListener('click', () => {
+  if (++calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+});
+
+/* ---------- 选项卡切换时刷新对应内容 ---------- */
 document.querySelector('.tab-btn[data-tab="stats"]').addEventListener('click', renderStats);
+document.querySelector('.tab-btn[data-tab="calendar"]').addEventListener('click', renderCalendar);
 
 /* ---------- 初始化 ---------- */
 document.getElementById('session-date').value = todayStr();
@@ -491,3 +567,4 @@ renderPrograms();
 renderSessions();
 renderTips();
 renderStats();
+renderCalendar();
