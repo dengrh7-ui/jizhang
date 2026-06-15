@@ -192,3 +192,43 @@ textarea { resize: vertical; }
 .badge.训练要点 { background: rgba(31,111,235,.18); color: #58a6ff; }
 .badge.关键技巧 { background: rgba(219,109,40,.18); color: #f0883e; }
 .tip-item .content { font-size: .9rem; color: var(--text); margin-top: 4px; white-space: pre-wrap; }
+
+/* Progressive overload hint */
+.overload-hint {
+  font-size: .78rem;
+  color: var(--muted);
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--primary);
+  border-radius: 4px;
+}
+.overload-hint b { color: #56d364; }
+
+/* Stats */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+.stat-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+}
+.stat-box .num { font-size: 1.6rem; font-weight: 700; color: var(--primary-hover); }
+.stat-box .lbl { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: flex; align-items: center; gap: 10px; font-size: .8rem; }
+.bar-row .bar-label { width: 90px; color: var(--muted); flex-shrink: 0; }
+.bar-row .bar-track { flex: 1; background: var(--surface-2); border-radius: 4px; height: 22px; overflow: hidden; }
+.bar-row .bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  border-radius: 4px;
+  min-width: 2px;
+}
+.bar-row .bar-val { width: 70px; text-align: right; color: var(--text); flex-shrink: 0; }

@@ -17,6 +17,7 @@
   <button class="tab-btn active" data-tab="log">训练记录</button>
   <button class="tab-btn" data-tab="programs">训练项目</button>
   <button class="tab-btn" data-tab="tips">训练要点</button>
+  <button class="tab-btn" data-tab="stats">数据统计</button>
 </nav>
 
 <main>
@@ -32,7 +33,10 @@
         <label>训练日期</label>
         <input type="date" id="session-date">
       </div>
-      <button class="btn primary" id="start-session">+ 创建训练</button>
+      <div class="row-actions">
+        <button class="btn primary" id="start-session">+ 创建训练</button>
+        <button class="btn" id="copy-last-session">📋 复制上次同项目训练</button>
+      </div>
     </div>
 
     <div id="sessions-list"></div>
@@ -88,6 +92,40 @@
       <button class="chip" data-filter="关键技巧">关键技巧</button>
     </div>
     <div id="tips-list"></div>
+  </section>
+
+  <!-- ========== 数据统计 ========== -->
+  <section id="tab-stats" class="tab-panel">
+    <div class="card">
+      <h2>训练概览</h2>
+      <div class="stat-grid" id="stat-summary"></div>
+    </div>
+
+    <div class="card">
+      <h2>每周训练容量</h2>
+      <p class="hint">容量 = 重量 × 次数 累加（单位：kg），按周统计。</p>
+      <div id="volume-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>动作进步追踪</h2>
+      <p class="hint">选择一个动作，查看历次最大重量与每组总容量的变化。</p>
+      <div class="form-row">
+        <label>选择动作</label>
+        <select id="progress-exercise"></select>
+      </div>
+      <div id="progress-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>数据备份</h2>
+      <p class="hint">导出为 JSON 文件保存，或导入此前的备份。导入将覆盖当前所有数据。</p>
+      <div class="row-actions">
+        <button class="btn primary" id="export-data">⬇️ 导出备份</button>
+        <button class="btn" id="import-data">⬆️ 导入备份</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+      </div>
+    </div>
   </section>
 </main>
 

@@ -172,6 +172,7 @@ function renderExercise(sessionId, ex) {
         <span class="name">${esc(ex.name)}</span>
         <button class="btn small danger" data-del-ex="${sessionId}|${ex.id}">删除动作</button>
       </div>
+      ${overloadHint(sessionId, ex.name)}
       ${ex.sets.length ? `
       <table class="sets-table">
         <thead><tr><th>组</th><th>重量</th><th>次数</th><th></th></tr></thead>
@@ -248,6 +249,59 @@ function findEx(sid, exid) {
   return s.exercises.find(e => e.id === exid);
 }
 
+/* ---------- 渐进超负荷提示 ---------- */
+// 找到该动作在“当前训练之前”最近一次有记录的表现
+function findPrevExercisePerf(sessionId, exName) {
+  const current = data.sessions.find(s => s.id === sessionId);
+  if (!current) return null;
+  const candidates = data.sessions
+    .filter(s => s.id !== sessionId && s.date <= current.date)
+    .filter(s => s.exercises.some(e => e.name === exName && e.sets.some(set => Number(set.weight) > 0 || Number(set.reps) > 0)))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (!candidates.length) return null;
+  const prev = candidates[0];
+  const ex = prev.exercises.find(e => e.name === exName);
+  // 取重量最大的一组
+  let best = null;
+  ex.sets.forEach(set => {
+    const w = Number(set.weight) || 0, r = Number(set.reps) || 0;
+    if (!best || w > best.w || (w === best.w && r > best.r)) best = { w, r };
+  });
+  return { date: prev.date, best };
+}
+
+function overloadHint(sessionId, exName) {
+  const prev = findPrevExercisePerf(sessionId, exName);
+  if (!prev || !prev.best || prev.best.w === 0) return '';
+  const { w, r } = prev.best;
+  const suggestW = Math.round((w + 2.5) * 10) / 10;
+  return `<div class="overload-hint">上次 (${esc(prev.date)})：最重 ${w}kg × ${r}次　·
+    建议本次尝试 <b>${suggestW}kg</b> 或在 ${w}kg 下多做 1-2 次（渐进超负荷）</div>`;
+}
+
+/* ---------- 复制上次同项目训练 ---------- */
+document.getElementById('copy-last-session').addEventListener('click', () => {
+  const programId = document.getElementById('session-program').value;
+  const date = document.getElementById('session-date').value || todayStr();
+  if (!programId) { alert('请先在“训练项目”中创建项目'); return; }
+  const last = data.sessions.find(s => s.programId === programId);
+  if (!last) { alert('该项目还没有历史训练可复制'); return; }
+  data.sessions.unshift({
+    id: uid(),
+    programId: last.programId,
+    programName: last.programName,
+    date,
+    exercises: last.exercises.map(ex => ({
+      id: uid(),
+      name: ex.name,
+      sets: ex.sets.map(set => ({ weight: set.weight, reps: set.reps })),
+    })),
+  });
+  save();
+  renderSessions();
+  alert('已复制上次「' + last.programName + '」训练，可在此基础上调整。');
+});
+
 /* ============================================================
    训练要点 (Tips)
    ============================================================ */
@@ -299,8 +353,141 @@ function renderTips() {
     }));
 }
 
+/* ============================================================
+   数据统计 (Stats)
+   ============================================================ */
+function sessionVolume(s) {
+  return s.exercises.reduce((sum, ex) =>
+    sum + ex.sets.reduce((t, set) =>
+      t + (Number(set.weight) || 0) * (Number(set.reps) || 0), 0), 0);
+}
+
+// 返回某日期所在 ISO 周的标识，如 "2026-W24"
+function weekKey(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = (d.getUTCDay() + 6) % 7;            // 周一为 0
+  d.setUTCDate(d.getUTCDate() - day + 3);          // 移到周四
+  const firstThu = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((d - firstThu) / 86400000 - 3 + ((firstThu.getUTCDay() + 6) % 7)) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function barChart(rows) {
+  if (!rows.length) return '<div class="empty">暂无数据</div>';
+  const max = Math.max(...rows.map(r => r.value), 1);
+  return `<div class="bar-chart">${rows.map(r => `
+    <div class="bar-row">
+      <span class="bar-label">${esc(r.label)}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${(r.value / max * 100).toFixed(1)}%"></span></span>
+      <span class="bar-val">${r.display ?? r.value}</span>
+    </div>`).join('')}</div>`;
+}
+
+function renderStats() {
+  // 概览
+  const totalSessions = data.sessions.length;
+  const totalVolume = data.sessions.reduce((t, s) => t + sessionVolume(s), 0);
+  const totalSets = data.sessions.reduce((t, s) =>
+    t + s.exercises.reduce((c, ex) => c + ex.sets.length, 0), 0);
+  const last7 = data.sessions.filter(s => {
+    const diff = (Date.now() - new Date(s.date + 'T00:00:00')) / 86400000;
+    return diff >= 0 && diff < 7;
+  }).length;
+
+  document.getElementById('stat-summary').innerHTML = `
+    <div class="stat-box"><div class="num">${totalSessions}</div><div class="lbl">总训练次数</div></div>
+    <div class="stat-box"><div class="num">${last7}</div><div class="lbl">近 7 天训练</div></div>
+    <div class="stat-box"><div class="num">${totalSets}</div><div class="lbl">总组数</div></div>
+    <div class="stat-box"><div class="num">${Math.round(totalVolume).toLocaleString()}</div><div class="lbl">总容量 (kg)</div></div>`;
+
+  // 每周训练容量（最近 8 周）
+  const byWeek = {};
+  data.sessions.forEach(s => {
+    const k = weekKey(s.date);
+    byWeek[k] = (byWeek[k] || 0) + sessionVolume(s);
+  });
+  const weekRows = Object.keys(byWeek).sort().slice(-8).map(k => ({
+    label: k.replace(/^\d+-/, ''),
+    value: Math.round(byWeek[k]),
+    display: Math.round(byWeek[k]).toLocaleString(),
+  }));
+  document.getElementById('volume-chart').innerHTML = barChart(weekRows);
+
+  // 动作进步追踪
+  const exNames = [...new Set(data.sessions.flatMap(s => s.exercises.map(e => e.name)))].sort();
+  const sel = document.getElementById('progress-exercise');
+  const prevVal = sel.value;
+  sel.innerHTML = exNames.length
+    ? exNames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
+    : '<option value="">暂无动作数据</option>';
+  if (exNames.includes(prevVal)) sel.value = prevVal;
+  renderProgressChart();
+}
+
+function renderProgressChart() {
+  const name = document.getElementById('progress-exercise').value;
+  const box = document.getElementById('progress-chart');
+  if (!name) { box.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+  const rows = data.sessions
+    .filter(s => s.exercises.some(e => e.name === name))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(s => {
+      const ex = s.exercises.find(e => e.name === name);
+      const maxW = Math.max(0, ...ex.sets.map(set => Number(set.weight) || 0));
+      return { label: s.date.slice(5), value: maxW, display: maxW + ' kg' };
+    })
+    .filter(r => r.value > 0)
+    .slice(-10);
+  box.innerHTML = barChart(rows);
+}
+
+document.getElementById('progress-exercise').addEventListener('change', renderProgressChart);
+
+/* ============================================================
+   数据备份：导出 / 导入
+   ============================================================ */
+document.getElementById('export-data').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `健身记录备份_${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('import-data').addEventListener('click', () =>
+  document.getElementById('import-file').click());
+
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!parsed || !Array.isArray(parsed.programs) || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.tips))
+        throw new Error('文件格式不正确');
+      if (!confirm('导入将覆盖当前所有数据，确定继续？')) return;
+      data = parsed;
+      save();
+      renderPrograms(); renderSessions(); renderTips(); renderStats();
+      alert('导入成功！');
+    } catch (err) {
+      alert('导入失败：' + err.message);
+    } finally {
+      e.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- 选项卡切换时刷新统计 ---------- */
+document.querySelector('.tab-btn[data-tab="stats"]').addEventListener('click', renderStats);
+
 /* ---------- 初始化 ---------- */
 document.getElementById('session-date').value = todayStr();
 renderPrograms();
 renderSessions();
 renderTips();
+renderStats();
