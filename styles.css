@@ -243,6 +243,71 @@ textarea { resize: vertical; }
 }
 .bar-row .bar-val { width: 72px; text-align: right; color: var(--text); flex-shrink: 0; }
 
+/* Professional: goals, guides, 1RM */
+.section-label {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 18px 2px 10px;
+  letter-spacing: .5px;
+}
+.goal-tag {
+  display: inline-block;
+  font-size: .68rem;
+  padding: 2px 9px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: rgba(0, 113, 227, .12);
+  color: var(--primary);
+  vertical-align: middle;
+}
+.goal-guide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: .82rem;
+  color: var(--text);
+}
+.goal-guide span { white-space: nowrap; }
+.goal-guide .guide-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: .76rem;
+  margin-top: 4px;
+}
+.session-guide {
+  font-size: .8rem;
+  color: var(--primary);
+  background: rgba(0, 113, 227, .06);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.e1rm-cell { color: var(--muted); font-variant-numeric: tabular-nums; }
+.e1rm-badge {
+  font-size: .8rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.e1rm-badge b { color: var(--success); }
+
+.tip-item.knowledge { border-left: 3px solid var(--primary); }
+.tip-item .source {
+  font-size: .76rem;
+  color: var(--muted);
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.calc-inputs { display: flex; gap: 12px; }
+.calc-inputs .form-row { flex: 1; }
+.strength-table { margin-top: 8px; }
+.strength-table th, .strength-table td { padding: 5px 6px; font-variant-numeric: tabular-nums; }
+.strength-table tbody tr:nth-child(odd) { background: var(--surface-2); }
+
 /* Coach */
 .coach-context {
   display: flex;

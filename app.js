@@ -1,34 +1,92 @@
 /* ============================================================
-   健身训练记录 — 本地存储 (localStorage) 单页应用
+   德训录 — 本地存储 (localStorage) 单页应用
    数据结构：
-   - programs: [{ id, name, exercises: [string] }]
-   - sessions: [{ id, programId, programName, date,
-                  exercises: [{ id, name, sets: [{reps, weight}] }] }]
-   - tips: [{ id, title, category, content }]
+   - programs: [{ id, name, goal, exercises: [string] }]
+   - sessions: [{ id, programId, programName, goal, date,
+                  exercises: [{ id, name, sets: [{weight, reps, rpe}] }] }]
+   - tips: [{ id, title, category, content }]   // 用户自定义要点
+   专业指标：RPE(自觉用力程度 6–10)、估算 1RM(Epley)、%1RM、RIR、组间休息
    ============================================================ */
 
 const STORE_KEY = 'fitness-tracker-v1';
 
 const DEFAULT_DATA = {
   programs: [
-    { id: uid(), name: '胸部训练', exercises: ['杠铃卧推', '哑铃飞鸟', '上斜卧推'] },
-    { id: uid(), name: '腿部训练', exercises: ['深蹲', '腿举', '罗马尼亚硬拉'] },
-    { id: uid(), name: '肩部训练', exercises: ['坐姿推举', '侧平举', '面拉'] },
-    { id: uid(), name: '功能性训练', exercises: ['壶铃摆动', '农夫行走', '波比跳'] },
-    { id: uid(), name: '手臂训练', exercises: ['杠铃弯举', '绳索下压', '锤式弯举'] },
+    { id: uid(), name: '胸部训练', goal: '增肌', exercises: ['杠铃卧推', '上斜哑铃卧推', '哑铃飞鸟', '绳索夹胸'] },
+    { id: uid(), name: '腿部训练', goal: '增肌', exercises: ['杠铃深蹲', '罗马尼亚硬拉', '腿举', '腿屈伸', '坐姿提踵'] },
+    { id: uid(), name: '背部训练', goal: '增肌', exercises: ['硬拉', '引体向上', '杠铃划船', '高位下拉'] },
+    { id: uid(), name: '肩部训练', goal: '增肌', exercises: ['坐姿杠铃推举', '哑铃侧平举', '面拉', '反向飞鸟'] },
+    { id: uid(), name: '手臂训练', goal: '增肌', exercises: ['杠铃弯举', '锤式弯举', '窄距卧推', '绳索下压'] },
+    { id: uid(), name: '功能性训练', goal: '功能性', exercises: ['壶铃摆动', '农夫行走', '药球砸地', '雪橇推'] },
   ],
   sessions: [],
-  tips: [
-    { id: uid(), title: '复合动作组数建议', category: '组数建议',
-      content: '大肌群复合动作（深蹲、卧推、硬拉）建议 3-5 组，每组 5-8 次，注重重量与渐进超负荷。' },
-    { id: uid(), title: '孤立动作组数建议', category: '组数建议',
-      content: '孤立动作（飞鸟、侧平举、弯举）建议 3-4 组，每组 10-15 次，注重肌肉收缩感受。' },
-    { id: uid(), title: '训练前热身', category: '训练要点',
-      content: '正式组前用 40%-60% 重量做 1-2 个热身组，激活目标肌群并保护关节。' },
-    { id: uid(), title: '呼吸节奏', category: '关键技巧',
-      content: '发力时呼气，还原时吸气；大重量可使用瓦式呼吸稳定核心。' },
-  ],
+  tips: [],
 };
+
+/* ---------- 训练目标处方（基于 NSCA / ACSM / Schoenfeld） ---------- */
+const GOAL_GUIDE = {
+  力量: {
+    reps: '1–5 Reps', intensity: '≥85% 1RM', sets: '每动作 3–6 组',
+    rest: '组间休息 3–5 分钟', rir: 'RIR 1–2',
+    note: '以多关节复合动作为主，强度优先、动作精准。— NSCA《体能训练精要》/ Rippetoe《力量训练基础》',
+  },
+  增肌: {
+    reps: '6–12 Reps', intensity: '67–85% 1RM', sets: '每动作 3–6 组',
+    rest: '复合 2–3 分钟 / 孤立 1–2 分钟', rir: 'RIR 0–3（接近力竭）',
+    note: '每个肌群每周累计 10–20 个有效组，分至少 2 次练。— Schoenfeld《肌肥大科学》',
+  },
+  耐力: {
+    reps: '≥15 Reps', intensity: '≤67% 1RM', sets: '每动作 2–3 组',
+    rest: '组间休息 ≤30–60 秒', rir: 'RIR 0–1',
+    note: '短间歇、高次数，发展肌耐力与代谢压力。— ACSM 运动测试与处方指南',
+  },
+  功能性: {
+    reps: '5–15 Reps 或计时/计距', intensity: '中等负荷 / 自重 / 爆发力', sets: '每动作 3–5 组',
+    rest: '组间休息 1–3 分钟', rir: '以动作质量与功率为先',
+    note: '强调多平面、核心稳定与基础动作模式。— NSCA《体能训练精要》',
+  },
+};
+const GOALS = Object.keys(GOAL_GUIDE);
+
+/* ---------- 内置专业知识库（只读，权威书籍背书） ---------- */
+const KNOWLEDGE = [
+  { title: '按目标选择 Reps 与强度', category: '组数建议',
+    content: '力量：1–5 Reps，≥85% 1RM，组间 3–5 分钟；\n增肌：6–12 Reps，67–85% 1RM，组间 1–3 分钟；\n耐力：≥15 Reps，≤67% 1RM，组间 ≤60 秒。强度(%1RM)与次数互为反比。',
+    source: 'NSCA《体能训练精要(第4版)》· ACSM 运动指南' },
+  { title: '每周每肌群训练容量（组数）', category: '组数建议',
+    content: '以“有效组(接近力竭的工作组)”计：每个肌群每周约 10–20 组可获得良好增长。\nMEV(最低有效容量)≈8–10 组，MAV(最佳适应容量)≈12–18 组，MRV(最大可恢复容量)≈20+ 组，超过则恢复不足。',
+    source: 'Schoenfeld 2017 Meta · Israetel(RP)《Scientific Principles of Hypertrophy》' },
+  { title: '训练频率：每肌群每周 ≥2 次', category: '组数建议',
+    content: '在周容量相同的前提下，把容量分散到每周 2 次以上训练，肌肥大效果优于每周 1 次。例如每肌群 16 组，拆成 2×8 优于 1×16。',
+    source: 'Schoenfeld 2016 Meta-analysis（训练频率）' },
+  { title: '渐进超负荷与双递进法则', category: '训练要点',
+    content: '肌肉适应来自持续递增的刺激。推荐“双递进(Double Progression)”：先在固定重量下把次数做到目标区间上限（如 12 次），下次再加重并回到区间下限（如 8 次），如此循环。',
+    source: 'Zatsiorsky《力量训练的科学与实践》· Helms《力量与围度金字塔》' },
+  { title: 'RPE / RIR 自觉强度量表', category: '关键技巧',
+    content: 'RPE(自觉用力程度) 6–10：\nRPE 10 = 力竭，0 次余力(RIR 0)；\nRPE 9 = 还剩 1 次(RIR 1)；\nRPE 8 = 还剩 2 次(RIR 2)。\n增肌多数工作组建议 RPE 7–9；力量大重量可达 RPE 8–9。',
+    source: 'Zourdos 等 2016（基于 RIR 的 RPE 量表）' },
+  { title: '接近力竭，但不必每组力竭', category: '训练要点',
+    content: '把工作组练到“接近力竭”(RIR 0–3)即可有效刺激肌肉；长期每组绝对力竭会累积疲劳、影响容量与恢复。复合大重量动作尤其要保留 1–2 次余力以保安全。',
+    source: 'Schoenfeld《肌肥大科学》· Helms《力量与围度金字塔》' },
+  { title: '组间休息时长', category: '关键技巧',
+    content: '力量(大重量复合)：3–5 分钟，保证神经与磷酸原系统恢复；\n增肌：复合 2–3 分钟、孤立 1–2 分钟，休息过短会牺牲后续组的总容量；\n耐力：≤30–60 秒。',
+    source: 'Schoenfeld 2016（组间休息与增肌）· NSCA' },
+  { title: '动作节奏(Tempo)与离心控制', category: '关键技巧',
+    content: '用 2–4 秒控制离心(还原)阶段，向心(发力)有控制地加速；全程肌肉持续张力。避免靠惯性甩起重量。节奏记法如 3-1-1-0（离心-底部停顿-向心-顶部）。',
+    source: 'Schoenfeld《肌肥大科学》· Siff《Supertraining》' },
+  { title: '热身：渐进升重组(Ramp-up)', category: '训练要点',
+    content: '正式组前先做 5–10 分钟全身热身，再用 40%/60%/80% 工作重量做 2–3 个升重组（次数递减），激活目标肌群、复习动作轨迹并降低受伤风险，且几乎不产生额外疲劳。',
+    source: 'NSCA《体能训练精要》· Rippetoe《力量训练基础》' },
+  { title: '估算 1RM（Epley 公式）', category: '关键技巧',
+    content: '1RM ≈ 重量 ×(1 + 次数/30)。例：100kg×5 → 约 117kg。\n用次极限重量(reps≤10)估算更准，可避免频繁测真 1RM 带来的风险。本 App 会自动为每个动作计算估算 1RM 并追踪趋势。',
+    source: 'Epley 1985 · Brzycki 公式可作交叉验证' },
+  { title: '核心稳定与呼吸(瓦式呼吸)', category: '关键技巧',
+    content: '大重量深蹲/硬拉/推举时，吸气后屏息收紧核心(Valsalva)以稳定脊柱、提升发力；完成最难一段后呼气。高血压或心血管风险者应谨慎使用并咨询医生。',
+    source: 'Zatsiorsky《力量训练的科学与实践》· NSCA' },
+  { title: '周期化：让进步可持续', category: '训练要点',
+    content: '避免长期同一强度。可用线性或波动周期：如以 4–6 周为一个区块逐步加量，之后安排 1 周减载(Deload，容量/强度降至约 50–60%)以消除疲劳、实现超量恢复。',
+    source: 'Zatsiorsky · Israetel(RP) 区块周期化' },
+];
 
 let data = load();
 
@@ -46,6 +104,40 @@ function todayStr() { return new Date().toISOString().slice(0, 10); }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ---------- 专业计算 ---------- */
+// 估算 1RM（Epley 公式）：1RM = w × (1 + reps/30)
+function est1RM(w, r) {
+  w = Number(w) || 0; r = Number(r) || 0;
+  if (w <= 0 || r <= 0) return 0;
+  if (r === 1) return w;
+  return w * (1 + r / 30);
+}
+// 估算 1RM（Brzycki 公式），用于交叉验证
+function est1RM_brzycki(w, r) {
+  w = Number(w) || 0; r = Number(r) || 0;
+  if (w <= 0 || r <= 0 || r >= 37) return 0;
+  return w * 36 / (37 - r);
+}
+function round1(n) { return Math.round(n * 10) / 10; }
+function roundHalf(n) { return Math.round(n * 2) / 2; }
+
+// 取一个动作里“估算 1RM 最高”的一组
+function bestSetByE1RM(sets) {
+  let best = null;
+  (sets || []).forEach(set => {
+    const e = est1RM(set.weight, set.reps);
+    if (e > 0 && (!best || e > best.e1rm)) {
+      best = { w: Number(set.weight) || 0, r: Number(set.reps) || 0, rpe: set.rpe || '', e1rm: e };
+    }
+  });
+  return best;
+}
+
+// 判断是否为孤立/小肌群动作（用于渐进超负荷的加重幅度）
+function isIsolation(name) {
+  return /(飞鸟|侧平举|前平举|后束|弯举|下压|腿屈伸|腿弯举|提踵|夹胸|夹|面拉|耸肩|卷腹|臂屈伸|绳索|反向飞鸟)/.test(name);
 }
 
 /* ---------- 选项卡切换 ---------- */
@@ -73,16 +165,24 @@ function renderPrograms() {
     list.innerHTML = '<div class="empty">还没有训练项目，添加一个开始吧。</div>';
     return;
   }
-  list.innerHTML = data.programs.map(p => `
+  list.innerHTML = data.programs.map(p => {
+    const g = GOAL_GUIDE[p.goal] || null;
+    return `
     <div class="program-item">
       <div class="head">
         <div>
-          <div class="name">${esc(p.name)}</div>
+          <div class="name">${esc(p.name)}${p.goal ? `<span class="goal-tag">${esc(p.goal)}</span>` : ''}</div>
           <div class="ex-list">${p.exercises.length ? esc(p.exercises.join(' · ')) : '（暂无预设动作）'}</div>
         </div>
         <button class="btn small danger" data-del-program="${p.id}">删除</button>
       </div>
-    </div>`).join('');
+      ${g ? `<div class="goal-guide">
+        <span><b>${g.reps}</b></span><span>${g.intensity}</span><span>${g.sets}</span>
+        <span>${g.rest}</span><span>${g.rir}</span>
+        <div class="guide-note">${esc(g.note)}</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
 
   list.querySelectorAll('[data-del-program]').forEach(b => {
     b.addEventListener('click', () => {
@@ -94,12 +194,19 @@ function renderPrograms() {
   });
 }
 
+// 填充“训练目标”下拉
+function fillGoalSelect() {
+  const sel = document.getElementById('program-goal');
+  sel.innerHTML = GOALS.map(g => `<option value="${g}"${g === '增肌' ? ' selected' : ''}>${g}</option>`).join('');
+}
+
 document.getElementById('add-program').addEventListener('click', () => {
   const name = document.getElementById('program-name').value.trim();
   if (!name) { alert('请输入项目名称'); return; }
+  const goal = document.getElementById('program-goal').value || '增肌';
   const exercises = document.getElementById('program-exercises').value
     .split(/[,，]/).map(s => s.trim()).filter(Boolean);
-  data.programs.push({ id: uid(), name, exercises });
+  data.programs.push({ id: uid(), name, goal, exercises });
   save();
   document.getElementById('program-name').value = '';
   document.getElementById('program-exercises').value = '';
@@ -118,6 +225,7 @@ document.getElementById('start-session').addEventListener('click', () => {
     id: uid(),
     programId,
     programName: program ? program.name : '训练',
+    goal: program ? program.goal : '',
     date,
     // 预填该项目的动作，便于直接记录组数
     exercises: program
@@ -134,37 +242,52 @@ function renderSessions() {
     list.innerHTML = '<div class="empty">还没有训练记录，创建一次训练开始记录吧。</div>';
     return;
   }
-  list.innerHTML = data.sessions.map(s => `
+  list.innerHTML = data.sessions.map(s => {
+    const g = GOAL_GUIDE[s.goal];
+    return `
     <div class="session" data-session="${s.id}">
       <div class="session-head">
         <div>
-          <div class="title">${esc(s.programName)}</div>
-          <div class="meta">${esc(s.date)} · ${s.exercises.length} 个动作</div>
+          <div class="title">${esc(s.programName)}${s.goal ? `<span class="goal-tag">${esc(s.goal)}</span>` : ''}</div>
+          <div class="meta">${esc(s.date)} · ${s.exercises.length} 个动作 · 容量 ${Math.round(sessionVolume(s)).toLocaleString()} kg</div>
         </div>
         <button class="btn small danger" data-del-session="${s.id}">删除</button>
       </div>
       <div class="session-body">
+        ${g ? `<div class="session-guide">建议处方　${g.reps}　·　${g.intensity}　·　${g.sets}　·　${g.rest}</div>` : ''}
         ${s.exercises.map(ex => renderExercise(s.id, ex)).join('')}
         <div class="inline-form">
           <input type="text" placeholder="添加动作名称，例如：杠铃卧推" data-add-ex-input="${s.id}">
           <button class="btn small" data-add-ex="${s.id}">+ 动作</button>
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   bindSessionEvents();
 }
 
 function renderExercise(sessionId, ex) {
-  const rows = ex.sets.map((set, i) => `
+  const rows = ex.sets.map((set, i) => {
+    const e = est1RM(set.weight, set.reps);
+    return `
     <tr>
       <td>${i + 1}</td>
-      <td><input type="number" min="0" value="${set.weight ?? ''}" placeholder="kg"
+      <td><input type="number" min="0" step="0.5" value="${set.weight ?? ''}" placeholder="kg"
             data-set-weight="${sessionId}|${ex.id}|${i}"></td>
-      <td><input type="number" min="0" value="${set.reps ?? ''}" placeholder="次"
+      <td><input type="number" min="0" value="${set.reps ?? ''}" placeholder="Reps"
             data-set-reps="${sessionId}|${ex.id}|${i}"></td>
+      <td><input type="number" min="6" max="10" step="0.5" value="${set.rpe ?? ''}" placeholder="RPE"
+            data-set-rpe="${sessionId}|${ex.id}|${i}"></td>
+      <td class="e1rm-cell">${e ? round1(e) : '—'}</td>
       <td><button class="btn small danger" data-del-set="${sessionId}|${ex.id}|${i}">×</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
+
+  const best = bestSetByE1RM(ex.sets);
+  const e1rmLine = best
+    ? `<div class="e1rm-badge">本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）</div>`
+    : '';
 
   return `
     <div class="exercise">
@@ -175,9 +298,9 @@ function renderExercise(sessionId, ex) {
       ${overloadHint(sessionId, ex.name)}
       ${ex.sets.length ? `
       <table class="sets-table">
-        <thead><tr><th>组</th><th>重量</th><th>次数</th><th></th></tr></thead>
+        <thead><tr><th>组</th><th>重量(kg)</th><th>Reps</th><th>RPE</th><th>≈1RM</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
-      </table>` : '<div class="hint" style="margin:0">还没有记录组数</div>'}
+      </table>${e1rmLine}` : '<div class="hint" style="margin:0">还没有记录组数</div>'}
       <div class="set-add-row">
         <button class="btn small primary" data-add-set="${sessionId}|${ex.id}">+ 添加一组</button>
       </div>
@@ -217,7 +340,9 @@ function bindSessionEvents() {
     b.addEventListener('click', () => {
       const [sid, exid] = b.dataset.addSet.split('|');
       const ex = findEx(sid, exid);
-      ex.sets.push({ weight: '', reps: '' });
+      // 新组默认沿用上一组的重量/次数，便于快速记录
+      const prev = ex.sets[ex.sets.length - 1];
+      ex.sets.push(prev ? { weight: prev.weight, reps: prev.reps, rpe: '' } : { weight: '', reps: '', rpe: '' });
       save(); renderSessions();
     }));
 
@@ -233,13 +358,20 @@ function bindSessionEvents() {
     inp.addEventListener('change', () => {
       const [sid, exid, i] = inp.dataset.setWeight.split('|');
       findEx(sid, exid).sets[Number(i)].weight = inp.value;
-      save();
+      save(); renderSessions();
     }));
 
   list.querySelectorAll('[data-set-reps]').forEach(inp =>
     inp.addEventListener('change', () => {
       const [sid, exid, i] = inp.dataset.setReps.split('|');
       findEx(sid, exid).sets[Number(i)].reps = inp.value;
+      save(); renderSessions();
+    }));
+
+  list.querySelectorAll('[data-set-rpe]').forEach(inp =>
+    inp.addEventListener('change', () => {
+      const [sid, exid, i] = inp.dataset.setRpe.split('|');
+      findEx(sid, exid).sets[Number(i)].rpe = inp.value;
       save();
     }));
 }
@@ -256,27 +388,33 @@ function findPrevExercisePerf(sessionId, exName) {
   if (!current) return null;
   const candidates = data.sessions
     .filter(s => s.id !== sessionId && s.date <= current.date)
-    .filter(s => s.exercises.some(e => e.name === exName && e.sets.some(set => Number(set.weight) > 0 || Number(set.reps) > 0)))
+    .filter(s => s.exercises.some(e => e.name === exName && e.sets.some(set => Number(set.weight) > 0 && Number(set.reps) > 0)))
     .sort((a, b) => b.date.localeCompare(a.date));
   if (!candidates.length) return null;
   const prev = candidates[0];
   const ex = prev.exercises.find(e => e.name === exName);
-  // 取重量最大的一组
-  let best = null;
-  ex.sets.forEach(set => {
-    const w = Number(set.weight) || 0, r = Number(set.reps) || 0;
-    if (!best || w > best.w || (w === best.w && r > best.r)) best = { w, r };
-  });
-  return { date: prev.date, best };
+  return { date: prev.date, best: bestSetByE1RM(ex.sets) };
 }
 
 function overloadHint(sessionId, exName) {
   const prev = findPrevExercisePerf(sessionId, exName);
-  if (!prev || !prev.best || prev.best.w === 0) return '';
-  const { w, r } = prev.best;
-  const suggestW = Math.round((w + 2.5) * 10) / 10;
-  return `<div class="overload-hint">上次 (${esc(prev.date)})：最重 ${w}kg × ${r}次　·
-    建议本次尝试 <b>${suggestW}kg</b> 或在 ${w}kg 下多做 1-2 次（渐进超负荷）</div>`;
+  if (!prev || !prev.best) return '';
+  const { w, r, e1rm } = prev.best;
+  // 该次训练的目标 Reps 区间上限（用于双递进判断）
+  const session = data.sessions.find(s => s.id === sessionId);
+  const topRep = { 力量: 5, 增肌: 12, 耐力: 20, 功能性: 15 }[session && session.goal] || 12;
+  const inc = isIsolation(exName) ? 1.25 : 2.5;     // 孤立 +1.25kg，复合 +2.5kg
+  const suggestW = roundHalf(w + inc);
+
+  let advice;
+  if (r >= topRep) {
+    // 已达区间上限 → 加重（双递进）
+    advice = `已达目标 Reps 上限，建议加重至 <b>${suggestW}kg</b>（双递进：加重后回到区间下限）`;
+  } else {
+    // 未达上限 → 同重量加次数
+    advice = `建议保持 ${w}kg，争取做到 <b>${r + 1}–${topRep} Reps</b>（先加次数，达上限再加重）`;
+  }
+  return `<div class="overload-hint">上次 ${esc(prev.date)}：最佳 ${w}kg × ${r} Reps（≈1RM ${round1(e1rm)}kg）<br>${advice}</div>`;
 }
 
 /* ---------- 复制上次同项目训练 ---------- */
@@ -290,11 +428,12 @@ document.getElementById('copy-last-session').addEventListener('click', () => {
     id: uid(),
     programId: last.programId,
     programName: last.programName,
+    goal: last.goal || '',
     date,
     exercises: last.exercises.map(ex => ({
       id: uid(),
       name: ex.name,
-      sets: ex.sets.map(set => ({ weight: set.weight, reps: set.reps })),
+      sets: ex.sets.map(set => ({ weight: set.weight, reps: set.reps, rpe: set.rpe || '' })),
     })),
   });
   save();
@@ -327,14 +466,24 @@ document.querySelectorAll('.tip-filters .chip').forEach(c =>
     renderTips();
   }));
 
+function matchFilter(cat) { return tipFilter === '全部' || cat === tipFilter; }
+
 function renderTips() {
+  // 内置专业知识库（只读）
+  const kb = document.getElementById('knowledge-list');
+  const kItems = KNOWLEDGE.filter(t => matchFilter(t.category));
+  kb.innerHTML = kItems.length ? kItems.map(t => `
+    <div class="tip-item knowledge">
+      <span class="badge ${t.category}">${esc(t.category)}</span>
+      <div class="title">${esc(t.title)}</div>
+      <div class="content">${esc(t.content)}</div>
+      <div class="source">来源：${esc(t.source)}</div>
+    </div>`).join('') : '<div class="empty">该分类下暂无内容</div>';
+
+  // 用户自定义要点
   const list = document.getElementById('tips-list');
-  const items = data.tips.filter(t => tipFilter === '全部' || t.category === tipFilter);
-  if (!items.length) {
-    list.innerHTML = '<div class="empty">还没有训练要点，添加一条吧。</div>';
-    return;
-  }
-  list.innerHTML = items.map(t => `
+  const items = data.tips.filter(t => matchFilter(t.category));
+  list.innerHTML = items.length ? items.map(t => `
     <div class="tip-item">
       <div class="head">
         <div>
@@ -344,7 +493,7 @@ function renderTips() {
         <button class="btn small danger" data-del-tip="${t.id}">删除</button>
       </div>
       <div class="content">${esc(t.content)}</div>
-    </div>`).join('');
+    </div>`).join('') : '<div class="empty">还没有自定义要点，可在上方添加。</div>';
 
   list.querySelectorAll('[data-del-tip]').forEach(b =>
     b.addEventListener('click', () => {
@@ -426,6 +575,7 @@ function renderStats() {
 
 function renderProgressChart() {
   const name = document.getElementById('progress-exercise').value;
+  const metric = document.getElementById('progress-metric').value;
   const box = document.getElementById('progress-chart');
   if (!name) { box.innerHTML = '<div class="empty">暂无数据</div>'; return; }
   const rows = data.sessions
@@ -433,8 +583,19 @@ function renderProgressChart() {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(s => {
       const ex = s.exercises.find(e => e.name === name);
-      const maxW = Math.max(0, ...ex.sets.map(set => Number(set.weight) || 0));
-      return { label: s.date.slice(5), value: maxW, display: maxW + ' kg' };
+      let value, display;
+      if (metric === 'maxw') {
+        value = Math.max(0, ...ex.sets.map(set => Number(set.weight) || 0));
+        display = round1(value) + ' kg';
+      } else if (metric === 'volume') {
+        value = ex.sets.reduce((t, set) => t + (Number(set.weight) || 0) * (Number(set.reps) || 0), 0);
+        display = Math.round(value).toLocaleString() + ' kg';
+      } else {
+        const best = bestSetByE1RM(ex.sets);
+        value = best ? round1(best.e1rm) : 0;
+        display = value + ' kg';
+      }
+      return { label: s.date.slice(5), value, display };
     })
     .filter(r => r.value > 0)
     .slice(-10);
@@ -442,6 +603,32 @@ function renderProgressChart() {
 }
 
 document.getElementById('progress-exercise').addEventListener('change', renderProgressChart);
+document.getElementById('progress-metric').addEventListener('change', renderProgressChart);
+
+/* ---------- 1RM 估算与强度表 ---------- */
+document.getElementById('calc-run').addEventListener('click', () => {
+  const w = Number(document.getElementById('calc-weight').value);
+  const r = Number(document.getElementById('calc-reps').value);
+  const box = document.getElementById('calc-result');
+  if (!(w > 0) || !(r > 0)) { box.innerHTML = '<div class="hint">请输入有效的重量与次数</div>'; return; }
+  const e = est1RM(w, r), b = est1RM_brzycki(w, r);
+  // 各强度区间 → 对应重量与训练用途
+  const zones = [
+    ['100%', 1, '极限测试'], ['95%', 2, '力量'], ['90%', 4, '力量'],
+    ['85%', 6, '力量 / 增肌'], ['80%', 8, '增肌'], ['75%', 10, '增肌'],
+    ['70%', 12, '增肌 / 耐力'], ['65%', 15, '耐力'], ['60%', 18, '耐力'],
+  ];
+  const rows = zones.map(([pct, reps, use]) =>
+    `<tr><td>${pct}</td><td>${round1(e * parseInt(pct) / 100)} kg</td><td>~${reps}</td><td>${use}</td></tr>`).join('');
+  box.innerHTML = `
+    <div class="e1rm-badge" style="margin:12px 0">估算 1RM：<b>${round1(e)} kg</b>
+      <span class="hint" style="display:inline">（Epley）· Brzycki ${round1(b)} kg</span></div>
+    <table class="sets-table strength-table">
+      <thead><tr><th>强度 %1RM</th><th>对应重量</th><th>可做次数</th><th>训练用途</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="hint" style="margin-top:8px">注：%1RM↔Reps 为群体平均值，个体可能有差异；reps≤10 时估算更可靠。</div>`;
+});
 
 /* ============================================================
    数据备份：导出 / 导入
@@ -569,15 +756,17 @@ document.querySelectorAll('[data-coach-mode]').forEach(c =>
     coachMode = c.dataset.coachMode;
   }));
 
-// 把近期训练记录整理成给 Claude 的文字上下文
+// 把近期训练记录整理成给 Claude 的文字上下文（含 RPE 与估算 1RM）
 function buildTrainingContext() {
   return data.sessions.slice(0, 5).map(s => {
     const lines = s.exercises.map(ex => {
-      const done = ex.sets.filter(set => Number(set.weight) > 0 || Number(set.reps) > 0)
-        .map(set => `${set.weight || 0}kg×${set.reps || 0}`).join(', ');
-      return `  - ${ex.name}：${done || '未记录'}`;
+      const done = ex.sets.filter(set => Number(set.weight) > 0 && Number(set.reps) > 0)
+        .map(set => `${set.weight}kg×${set.reps}${set.rpe ? `@RPE${set.rpe}` : ''}`).join(', ');
+      const best = bestSetByE1RM(ex.sets);
+      const e = best ? `（≈1RM ${round1(best.e1rm)}kg）` : '';
+      return `  - ${ex.name}：${done || '未记录'}${e}`;
     }).join('\n');
-    return `${s.date} ${s.programName}\n${lines}`;
+    return `${s.date} ${s.programName}${s.goal ? `[目标:${s.goal}]` : ''}\n${lines}`;
   }).join('\n');
 }
 
@@ -621,6 +810,7 @@ document.querySelector('.tab-btn[data-tab="calendar"]').addEventListener('click'
 
 /* ---------- 初始化 ---------- */
 document.getElementById('session-date').value = todayStr();
+fillGoalSelect();
 renderPrograms();
 renderSessions();
 renderTips();

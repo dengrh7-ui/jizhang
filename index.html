@@ -70,10 +70,14 @@
         <input type="text" id="program-name" placeholder="例如：背部训练">
       </div>
       <div class="form-row">
+        <label>训练目标</label>
+        <select id="program-goal"></select>
+      </div>
+      <div class="form-row">
         <label>包含动作（用逗号分隔，可选）</label>
         <input type="text" id="program-exercises" placeholder="例如：引体向上, 杠铃划船, 高位下拉">
       </div>
-      <button class="btn primary" id="add-program">+ 添加项目</button>
+      <button class="btn primary" id="add-program">添加项目</button>
     </div>
 
     <div id="programs-list"></div>
@@ -109,6 +113,11 @@
       <button class="chip" data-filter="训练要点">训练要点</button>
       <button class="chip" data-filter="关键技巧">关键技巧</button>
     </div>
+
+    <h3 class="section-label">专业知识库 · 权威书籍背书</h3>
+    <div id="knowledge-list"></div>
+
+    <h3 class="section-label">我的要点</h3>
     <div id="tips-list"></div>
   </section>
 
@@ -127,12 +136,37 @@
 
     <div class="card">
       <h2>动作进步追踪</h2>
-      <p class="hint">选择一个动作，查看历次最大重量与每组总容量的变化。</p>
+      <p class="hint">选择动作与指标，查看历次变化。估算 1RM 是衡量力量进步最核心的指标。</p>
       <div class="form-row">
         <label>选择动作</label>
         <select id="progress-exercise"></select>
       </div>
+      <div class="form-row">
+        <label>追踪指标</label>
+        <select id="progress-metric">
+          <option value="e1rm">估算 1RM (Epley)</option>
+          <option value="maxw">最大重量 (kg)</option>
+          <option value="volume">单动作训练容量 (kg)</option>
+        </select>
+      </div>
       <div id="progress-chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>1RM 估算与强度表</h2>
+      <p class="hint">输入一组次极限的重量与次数，估算 1RM 并换算各强度区间对应重量。</p>
+      <div class="calc-inputs">
+        <div class="form-row">
+          <label>重量 (kg)</label>
+          <input type="number" id="calc-weight" min="0" placeholder="例如 100">
+        </div>
+        <div class="form-row">
+          <label>次数 (Reps)</label>
+          <input type="number" id="calc-reps" min="1" max="20" placeholder="例如 5">
+        </div>
+      </div>
+      <button class="btn primary" id="calc-run">估算</button>
+      <div id="calc-result"></div>
     </div>
 
     <div class="card">
