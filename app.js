@@ -656,95 +656,100 @@ let anatomyView = 'front';
 let anatomySel = null;
 
 // 关节动作动画（SMIL，Safari 兼容）：固定近端骨 + 绕关节摆动的远端骨 + 脉动的“工作肌肉”
-// 类真人小人动作演示：每块肌肉对应一组关节驱动（rotate/translate）+ 在小人身上高亮的肌肉块
-// 关节支点（静息站姿）：肩(64,70)/(96,70) 肘(64,102)/(96,102) 髋中(80,150) 膝(72,194)/(88,194)
+// 3D（CSS 3D 变换）类真人动作演示：每块肌肉驱动相应关节、绕“解剖学正确的轴”运动
+//   轴↔平面：rotateX=矢状面(屈伸) · rotateZ=冠状面(外展/内收) · rotateY=水平面(旋转)
+//   sel 目标关节，axis 旋转轴(X/Y/Z) 或 TY(竖直平移)，from/to 角度(度)；hot=高亮所在骨；
+//   plane=动作所在平面说明；primary=推荐动作；accessory=延伸动作
 const ANATOMY_ANIM = {
-  delt:     { fig: { armL: { from: 0, to: 78 }, armR: { from: 0, to: -78 } },
-              hi: [{ g: 'armL', cx: 64, cy: 74, rx: 7, ry: 7 }, { g: 'armR', cx: 96, cy: 74, rx: 7, ry: 7 }] },
-  pec:      { fig: { armL: { from: 55, to: 12 }, armR: { from: -55, to: -12 } },
-              hi: [{ g: 'torso', cx: 80, cy: 84, rx: 16, ry: 8 }] },
-  biceps:   { fig: { foreL: { from: 0, to: -145 }, foreR: { from: 0, to: 145 } },
-              hi: [{ g: 'armL', cx: 64, cy: 88, rx: 5, ry: 12 }, { g: 'armR', cx: 96, cy: 88, rx: 5, ry: 12 }] },
-  triceps:  { fig: { foreL: { from: -120, to: -5 }, foreR: { from: 120, to: 5 } },
-              hi: [{ g: 'armL', cx: 64, cy: 88, rx: 5, ry: 12 }, { g: 'armR', cx: 96, cy: 88, rx: 5, ry: 12 }] },
-  rectus:   { fig: { torso: { from: 0, to: 40 } },
-              hi: [{ g: 'torso', cx: 80, cy: 120, rx: 9, ry: 18 }] },
-  oblique:  { fig: { torso: { from: -16, to: 16 } },
-              hi: [{ g: 'torso', cx: 68, cy: 118, rx: 5, ry: 14 }, { g: 'torso', cx: 92, cy: 118, rx: 5, ry: 14 }] },
-  quads:    { fig: { shankL: { from: 72, to: 0 }, shankR: { from: 72, to: 0 } },
-              hi: [{ g: 'thighL', cx: 72, cy: 172, rx: 7, ry: 18 }, { g: 'thighR', cx: 88, cy: 172, rx: 7, ry: 18 }] },
-  traps:    { fig: { armL: { tx: 0, ty: -8 }, armR: { tx: 0, ty: -8 } },
-              hi: [{ g: 'torso', cx: 80, cy: 64, rx: 14, ry: 8 }] },
-  reardelt: { fig: { armL: { from: 12, to: 60 }, armR: { from: -12, to: -60 } },
-              hi: [{ g: 'armL', cx: 64, cy: 74, rx: 7, ry: 7 }, { g: 'armR', cx: 96, cy: 74, rx: 7, ry: 7 }] },
-  lats:     { fig: { armL: { from: 150, to: 14 }, armR: { from: -150, to: -14 } },
-              hi: [{ g: 'torso', cx: 70, cy: 110, rx: 7, ry: 16 }, { g: 'torso', cx: 90, cy: 110, rx: 7, ry: 16 }] },
-  erector:  { fig: { torso: { from: 35, to: -5 } },
-              hi: [{ g: 'torso', cx: 80, cy: 130, rx: 6, ry: 16 }] },
-  glutes:   { fig: { torso: { from: 42, to: 2 } },
-              hi: [{ g: 'torso', cx: 80, cy: 146, rx: 12, ry: 7 }] },
-  hams:     { fig: { shankL: { from: 0, to: 95 }, shankR: { from: 0, to: 95 } },
-              hi: [{ g: 'thighL', cx: 72, cy: 172, rx: 7, ry: 18 }, { g: 'thighR', cx: 88, cy: 172, rx: 7, ry: 18 }] },
-  calves:   { fig: { whole: { tx: 0, ty: -7 } },
-              hi: [{ g: 'shankL', cx: 72, cy: 214, rx: 6, ry: 14 }, { g: 'shankR', cx: 88, cy: 214, rx: 6, ry: 14 }] },
+  delt:     { plane: '冠状面 · 肩外展', primary: '哑铃侧平举', accessory: '站姿杠铃推举',
+              hot: ['armL', 'armR'], parts: [{ sel: 'armL', axis: 'Z', from: 0, to: -72 }, { sel: 'armR', axis: 'Z', from: 0, to: 72 }] },
+  pec:      { plane: '水平面 · 肩水平内收', primary: '杠铃卧推', accessory: '绳索夹胸',
+              hot: ['torso'], parts: [{ sel: 'armL', axis: 'Y', from: 0, to: -55 }, { sel: 'armR', axis: 'Y', from: 0, to: 55 }] },
+  biceps:   { plane: '矢状面 · 屈肘', primary: '杠铃弯举', accessory: '牧师凳弯举',
+              hot: ['armL', 'armR'], parts: [{ sel: 'foreL', axis: 'X', from: 0, to: -130 }, { sel: 'foreR', axis: 'X', from: 0, to: -130 }] },
+  triceps:  { plane: '矢状面 · 伸肘', primary: '窄距卧推', accessory: '绳索下压',
+              hot: ['armL', 'armR'], parts: [{ sel: 'foreL', axis: 'X', from: -120, to: -5 }, { sel: 'foreR', axis: 'X', from: -120, to: -5 }] },
+  rectus:   { plane: '矢状面 · 脊柱屈曲', primary: '悬垂举腿', accessory: '卷腹',
+              hot: ['torso'], parts: [{ sel: 'torso', axis: 'X', from: 0, to: 38 }] },
+  oblique:  { plane: '水平面 · 躯干旋转', primary: '俄罗斯转体', accessory: '负重体侧屈',
+              hot: ['torso'], parts: [{ sel: 'torso', axis: 'Y', from: -28, to: 28 }] },
+  quads:    { plane: '矢状面 · 伸膝', primary: '杠铃深蹲', accessory: '坐姿腿屈伸',
+              hot: ['thighL', 'thighR'], parts: [{ sel: 'shankL', axis: 'X', from: 70, to: 0 }, { sel: 'shankR', axis: 'X', from: 70, to: 0 }] },
+  traps:    { plane: '冠状面 · 肩胛上提', primary: '杠铃耸肩', accessory: '面拉',
+              hot: ['torso'], parts: [{ sel: 'shoulders', axis: 'TY', from: 0, to: -9 }] },
+  reardelt: { plane: '水平面 · 肩水平外展', primary: '反向飞鸟', accessory: '面拉',
+              hot: ['armL', 'armR'], parts: [{ sel: 'armL', axis: 'Y', from: 0, to: 45 }, { sel: 'armR', axis: 'Y', from: 0, to: -45 }] },
+  lats:     { plane: '矢状面 · 肩内收/后伸', primary: '引体向上', accessory: '高位下拉',
+              hot: ['torso'], parts: [{ sel: 'armL', axis: 'X', from: -150, to: -12 }, { sel: 'armR', axis: 'X', from: -150, to: -12 }] },
+  erector:  { plane: '矢状面 · 脊柱伸展', primary: '硬拉', accessory: '山羊挺身',
+              hot: ['torso'], parts: [{ sel: 'torso', axis: 'X', from: 32, to: -5 }] },
+  glutes:   { plane: '矢状面 · 伸髋', primary: '臀推', accessory: '罗马尼亚硬拉',
+              hot: ['torso'], parts: [{ sel: 'torso', axis: 'X', from: 42, to: 2 }] },
+  hams:     { plane: '矢状面 · 屈膝', primary: '罗马尼亚硬拉', accessory: '俯卧腿弯举',
+              hot: ['thighL', 'thighR'], parts: [{ sel: 'shankL', axis: 'X', from: 0, to: 92 }, { sel: 'shankR', axis: 'X', from: 0, to: 92 }] },
+  calves:   { plane: '矢状面 · 踝跖屈', primary: '站姿提踵', accessory: '坐姿提踵',
+              hot: ['shankL', 'shankR'], parts: [{ sel: 'man', axis: 'TY', from: 0, to: -9 }] },
 };
 
-const SMIL_ATTRS = 'calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.2 1;0.42 0 0.2 1" dur="2.6s" repeatCount="indefinite"';
+// 把 sel 名映射到 3D 小人里的元素 class
+const FIG_SEL = {
+  torso: 'j-spine', armL: 'j-armL', armR: 'j-armR', foreL: 'j-foreL', foreR: 'j-foreR',
+  thighL: 'j-thighL', thighR: 'j-thighR', shankL: 'j-shankL', shankR: 'j-shankR',
+  shoulders: 'lm-shoulders', man: 'lm-man',
+};
 
-function figureSVG(m) {
-  const an = ANATOMY_ANIM[m.key] || { fig: {}, hi: [] };
-  const fig = an.fig || {};
-  const rot = (part, px, py) => {
-    const s = fig[part]; if (!s || s.from === undefined) return '';
-    return `<animateTransform attributeName="transform" type="rotate" ${SMIL_ATTRS}
-      values="${s.from} ${px} ${py};${s.to} ${px} ${py};${s.from} ${px} ${py}"/>`;
-  };
-  const tr = (part) => {
-    const s = fig[part]; if (!s || s.tx === undefined) return '';
-    return `<animateTransform attributeName="transform" type="translate" ${SMIL_ATTRS}
-      values="0 0;${s.tx} ${s.ty};0 0"/>`;
-  };
-  const hi = (g) => (an.hi || []).filter(h => h.g === g)
-    .map(h => `<ellipse class="fig-muscle" cx="${h.cx}" cy="${h.cy}" rx="${h.rx}" ry="${h.ry}"/>`).join('');
+let anatomyPlane = 'orbit';   // orbit | sag | fro | tra
 
-  return `<svg class="figure" viewBox="0 0 160 252" aria-label="${esc(m.act.label)}">
-    <g>${tr('whole')}
-      <g>${rot('thighL', 72, 150)}
-        <line class="seg" x1="72" y1="150" x2="72" y2="194"/>${hi('thighL')}
-        <g>${rot('shankL', 72, 194)}
-          <line class="seg" x1="72" y1="194" x2="72" y2="236"/>
-          <line class="seg" x1="72" y1="236" x2="83" y2="240"/>${hi('shankL')}
-        </g>
-      </g>
-      <g>${rot('thighR', 88, 150)}
-        <line class="seg" x1="88" y1="150" x2="88" y2="194"/>${hi('thighR')}
-        <g>${rot('shankR', 88, 194)}
-          <line class="seg" x1="88" y1="194" x2="88" y2="236"/>
-          <line class="seg" x1="88" y1="236" x2="99" y2="240"/>${hi('shankR')}
-        </g>
-      </g>
-      <g>${rot('torso', 80, 150)}
-        <path class="fig-torso" d="M64 68 L96 68 L90 150 L70 150 Z"/>
-        <line class="seg" x1="80" y1="56" x2="80" y2="68"/>
-        <circle class="fig-head" cx="80" cy="42" r="13"/>${hi('torso')}
-        <g>${rot('armL', 64, 70)}${tr('armL')}
-          <line class="seg" x1="64" y1="70" x2="64" y2="102"/>${hi('armL')}
-          <g>${rot('foreL', 64, 102)}
-            <line class="seg" x1="64" y1="102" x2="64" y2="132"/>
-            <circle class="fig-hand" cx="64" cy="134" r="3.5"/>
-          </g>
-        </g>
-        <g>${rot('armR', 96, 70)}${tr('armR')}
-          <line class="seg" x1="96" y1="70" x2="96" y2="102"/>${hi('armR')}
-          <g>${rot('foreR', 96, 102)}
-            <line class="seg" x1="96" y1="102" x2="96" y2="132"/>
-            <circle class="fig-hand" cx="96" cy="134" r="3.5"/>
-          </g>
-        </g>
-      </g>
-    </g>
-    <text x="80" y="250" class="hinge-label">${esc(m.act.label)}</text>
-  </svg>`;
+function figure3D(m) {
+  const an = ANATOMY_ANIM[m.key] || { parts: [], hot: [] };
+  // 为每个被驱动的关节生成唯一 @keyframes，并记录其元素 class → 动画
+  let kf = '';
+  const animOf = {};
+  (an.parts || []).forEach((p, i) => {
+    const name = `mv_${m.key}_${i}`;
+    const frame = v => p.axis === 'TY' ? `transform:translateY(${v}px)` : `transform:rotate${p.axis}(${v}deg)`;
+    kf += `@keyframes ${name}{0%,100%{${frame(p.from)}}50%{${frame(p.to)}}}`;
+    animOf[FIG_SEL[p.sel]] = `${name} 2.6s ease-in-out infinite`;
+  });
+  const A = cls => animOf[cls] ? ` style="animation:${animOf[cls]}"` : '';
+  const hot = b => (an.hot || []).includes(b) ? ' hot' : '';
+  const vcls = { orbit: 'v-orbit', sag: 'v-sag', fro: 'v-fro', tra: 'v-tra' }[anatomyPlane] || 'v-orbit';
+
+  return `<style>${kf}</style>
+  <div class="scene3d">
+    <div class="fig3d ${vcls}">
+      <div class="ring r-fro"><b>冠状面</b></div>
+      <div class="ring r-sag"><b>矢状面</b></div>
+      <div class="ring r-tra"><b>水平面</b></div>
+      <div class="man lm-man"${A('lm-man')}>
+        <div class="head"></div>
+        <div class="limb spine"><div class="joint j-spine"${A('j-spine')}>
+          <div class="bar b-torso${hot('torso')}"></div>
+          <div class="limb shoulders lm-shoulders"${A('lm-shoulders')}>
+            <div class="limb armL"><div class="joint j-armL"${A('j-armL')}>
+              <div class="bar b-arm${hot('armL')}"></div>
+              <div class="limb fore"><div class="joint j-foreL"${A('j-foreL')}><div class="bar b-fore"></div></div></div>
+            </div></div>
+            <div class="limb armR"><div class="joint j-armR"${A('j-armR')}>
+              <div class="bar b-arm${hot('armR')}"></div>
+              <div class="limb fore"><div class="joint j-foreR"${A('j-foreR')}><div class="bar b-fore"></div></div></div>
+            </div></div>
+          </div>
+          <div class="limb hips">
+            <div class="limb thighL"><div class="joint j-thighL"${A('j-thighL')}>
+              <div class="bar b-thigh${hot('thighL')}"></div>
+              <div class="limb shank"><div class="joint j-shankL"${A('j-shankL')}><div class="bar b-shank${hot('shankL')}"></div></div></div>
+            </div></div>
+            <div class="limb thighR"><div class="joint j-thighR"${A('j-thighR')}>
+              <div class="bar b-thigh${hot('thighR')}"></div>
+              <div class="limb shank"><div class="joint j-shankR"${A('j-shankR')}><div class="bar b-shank${hot('shankR')}"></div></div></div>
+            </div></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  <div class="plane-tag">${esc(an.plane || m.act.label)}</div>`;
 }
 
 function renderAnatomy() {
@@ -752,11 +757,13 @@ function renderAnatomy() {
   const muscles = ANATOMY.filter(m => m.view === anatomyView);
   if (!anatomySel || !muscles.some(m => m.key === anatomySel)) anatomySel = muscles[0].key;
   const sel = ANATOMY.find(m => m.key === anatomySel);
+  const an = ANATOMY_ANIM[sel.key] || {};
+  const planes = [['orbit', '环绕'], ['sag', '矢状面'], ['fro', '冠状面'], ['tra', '水平面']];
 
   box.innerHTML = `
     <div class="card">
-      <h2>动态肌肉解剖</h2>
-      <p class="hint">点击人体图或下方肌肉名 → 高亮该肌肉并演示其主要关节动作，辅助你理解训练中的发力底层逻辑。</p>
+      <h2>动态肌肉解剖 · 3D</h2>
+      <p class="hint">点击人体图或肌肉名 → 选中肌肉。3D 小人演示该肌肉的主要训练动作，可环绕或从矢状面/冠状面/水平面观察。</p>
       <div class="anat-toggle">
         <button class="chip ${anatomyView === 'front' ? 'active' : ''}" data-anat-view="front">前侧</button>
         <button class="chip ${anatomyView === 'back' ? 'active' : ''}" data-anat-view="back">后侧</button>
@@ -766,7 +773,9 @@ function renderAnatomy() {
         <div class="anat-side">
           <div class="anat-chips">${muscles.map(m =>
             `<button class="chip ${m.key === anatomySel ? 'active' : ''}" data-anat-m="${m.key}">${esc(m.name)}</button>`).join('')}</div>
-          ${figureSVG(sel)}
+          <div class="anat-planes">${planes.map(([v, t]) =>
+            `<button class="chip ${anatomyPlane === v ? 'active' : ''}" data-anat-plane="${v}">${t}</button>`).join('')}</div>
+          ${figure3D(sel)}
         </div>
       </div>
       <div class="anat-detail">
@@ -775,6 +784,9 @@ function renderAnatomy() {
           <tr><th>起点</th><td>${esc(sel.origin)}</td></tr>
           <tr><th>止点</th><td>${esc(sel.insertion)}</td></tr>
           <tr><th>主要功能</th><td>${esc(sel.action)}</td></tr>
+          <tr><th>运动平面</th><td>${esc(an.plane || '—')}</td></tr>
+          <tr><th>推荐动作</th><td>${esc(an.primary || '—')}</td></tr>
+          <tr><th>延伸动作</th><td>${esc(an.accessory || '—')}</td></tr>
           <tr><th>主要训练</th><td>${esc(sel.exercises)}</td></tr>
           <tr><th>协同肌</th><td>${esc(sel.synergist)}</td></tr>
           <tr><th>拮抗肌</th><td>${esc(sel.antagonist)}</td></tr>
@@ -791,6 +803,8 @@ function renderAnatomy() {
     b.addEventListener('click', () => { anatomySel = b.dataset.anatM; renderAnatomy(); }));
   box.querySelectorAll('.body-svg [data-m]').forEach(el =>
     el.addEventListener('click', () => { anatomySel = el.dataset.m; renderAnatomy(); }));
+  box.querySelectorAll('[data-anat-plane]').forEach(b =>
+    b.addEventListener('click', () => { anatomyPlane = b.dataset.anatPlane; renderAnatomy(); }));
 }
 
 /* ============================================================
