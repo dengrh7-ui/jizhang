@@ -10,23 +10,23 @@
 <body>
 <header class="app-header">
   <h1>德训录</h1>
-  <p class="subtitle">训练记录 · 运动日历 · 训练要点</p>
+  <p class="subtitle">训练记录 · 运动日历 · 饮食营养</p>
 </header>
 
 <nav class="tabs">
-  <button class="tab-btn active" data-tab="log">记录</button>
+  <button class="tab-btn active" data-tab="log">训练</button>
   <button class="tab-btn" data-tab="calendar">日历</button>
-  <button class="tab-btn" data-tab="programs">项目</button>
+  <button class="tab-btn" data-tab="diet">饮食</button>
   <button class="tab-btn" data-tab="tips">要点</button>
   <button class="tab-btn" data-tab="stats">统计</button>
   <button class="tab-btn" data-tab="squad">搭子</button>
 </nav>
 
 <main>
-  <!-- ========== 训练记录 ========== -->
+  <!-- ========== 训练（记录 + 项目 合并） ========== -->
   <section id="tab-log" class="tab-panel active">
     <div class="card">
-      <h2>开始新的训练</h2>
+      <h2>开始训练</h2>
       <div class="form-row">
         <label>训练项目</label>
         <select id="session-program"></select>
@@ -37,10 +37,33 @@
       </div>
       <div class="row-actions">
         <button class="btn primary" id="start-session">创建训练</button>
-        <button class="btn" id="copy-last-session">复制上次同项目训练</button>
+        <button class="btn" id="copy-last-session">复制上次</button>
       </div>
     </div>
 
+    <details class="card foldable" id="program-manager">
+      <summary>训练项目管理</summary>
+      <p class="hint">按部位/目标分类管理，例如：胸部、腿部、肩部、功能性、手臂训练。</p>
+      <div class="form-row">
+        <label>项目名称</label>
+        <input type="text" id="program-name" placeholder="例如：背部训练">
+      </div>
+      <div class="form-row">
+        <label>训练目标</label>
+        <select id="program-goal"></select>
+      </div>
+      <div class="form-row">
+        <label>包含动作（用逗号分隔，可选）</label>
+        <input type="text" id="program-exercises" placeholder="例如：引体向上, 杠铃划船, 高位下拉">
+      </div>
+      <button class="btn primary" id="add-program">添加项目</button>
+      <div id="programs-list" style="margin-top:14px"></div>
+    </details>
+
+    <div class="history-bar">
+      <h3 class="section-label" style="margin:0">训练历史</h3>
+      <select id="history-filter" class="mini-select"></select>
+    </div>
     <div id="sessions-list"></div>
   </section>
 
@@ -60,27 +83,58 @@
     <div id="cal-day-detail"></div>
   </section>
 
-  <!-- ========== 训练项目 ========== -->
-  <section id="tab-programs" class="tab-panel">
+  <!-- ========== 饮食营养 ========== -->
+  <section id="tab-diet" class="tab-panel">
     <div class="card">
-      <h2>自定义训练项目</h2>
-      <p class="hint">创建你自己的训练分类，例如：胸部训练、腿部训练、肩部训练、功能性训练、手臂训练。</p>
-      <div class="form-row">
-        <label>项目名称</label>
-        <input type="text" id="program-name" placeholder="例如：背部训练">
+      <h2>我的身体信息</h2>
+      <p class="hint">用于个性化估算热量与营养需求（Mifflin-St Jeor 公式 + 活动系数）。</p>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>性别</label>
+          <select id="pf-gender"><option value="male">男</option><option value="female">女</option></select>
+        </div>
+        <div class="form-row">
+          <label>年龄</label>
+          <input type="number" id="pf-age" min="10" max="100" placeholder="岁">
+        </div>
+        <div class="form-row">
+          <label>身高 (cm)</label>
+          <input type="number" id="pf-height" min="100" max="230" placeholder="cm">
+        </div>
+        <div class="form-row">
+          <label>体重 (kg)</label>
+          <input type="number" id="pf-weight" min="30" max="250" step="0.1" placeholder="kg">
+        </div>
+        <div class="form-row">
+          <label>活动水平</label>
+          <select id="pf-activity">
+            <option value="1.2">久坐（几乎不运动）</option>
+            <option value="1.375">轻度（每周 1–3 次）</option>
+            <option value="1.55" selected>中度（每周 3–5 次）</option>
+            <option value="1.725">高度（每周 6–7 次）</option>
+            <option value="1.9">极高（体力工作/双练）</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>饮食目标</label>
+          <select id="pf-goal">
+            <option value="cut">减脂</option>
+            <option value="maintain" selected>维持</option>
+            <option value="bulk">增肌</option>
+          </select>
+        </div>
       </div>
-      <div class="form-row">
-        <label>训练目标</label>
-        <select id="program-goal"></select>
-      </div>
-      <div class="form-row">
-        <label>包含动作（用逗号分隔，可选）</label>
-        <input type="text" id="program-exercises" placeholder="例如：引体向上, 杠铃划船, 高位下拉">
-      </div>
-      <button class="btn primary" id="add-program">添加项目</button>
+      <button class="btn primary" id="pf-save">保存并生成饮食建议</button>
     </div>
 
-    <div id="programs-list"></div>
+    <div id="diet-result"></div>
+
+    <div class="card">
+      <h2>食物热量查询</h2>
+      <p class="hint">数据参考《中国食物成分表(第6版)》与 USDA FoodData Central，每 100g 可食部。</p>
+      <input type="text" id="food-search" placeholder="搜索食物，例如：鸡胸、米饭、牛奶">
+      <div id="food-result"></div>
+    </div>
   </section>
 
   <!-- ========== 训练要点 ========== -->

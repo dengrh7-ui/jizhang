@@ -363,6 +363,53 @@ textarea { resize: vertical; }
 }
 .cal-cell.selected .cal-dot { background: #fff; }
 
+/* Foldable card (项目管理) */
+.foldable summary {
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.foldable summary::-webkit-details-marker { display: none; }
+.foldable summary::before { content: '▸'; color: var(--muted); transition: .2s; }
+.foldable[open] summary::before { transform: rotate(90deg); }
+.foldable summary + * { margin-top: 12px; }
+
+/* History filter bar */
+.history-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 2px 10px;
+}
+.mini-select {
+  width: auto;
+  padding: 6px 10px;
+  font-size: .85rem;
+  border-radius: 8px;
+}
+
+/* Diet / profile */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.diet-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 12px;
+  font-size: .82rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+#food-search { margin-bottom: 4px; }
+
 /* Squad */
 .squad-code { letter-spacing: 2px; color: var(--primary); }
 .squad-members { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -407,4 +454,6 @@ textarea { resize: vertical; }
 
   .row-actions { flex-direction: column; }
   .row-actions .btn { width: 100%; }
+
+  .form-grid { grid-template-columns: 1fr; gap: 0; }
 }

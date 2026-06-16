@@ -89,6 +89,16 @@ const KNOWLEDGE = [
 ];
 
 let data = load();
+normalizeData();
+
+// 兼容旧数据：补齐缺失字段
+function normalizeData() {
+  data.programs = data.programs || [];
+  data.sessions = data.sessions || [];
+  data.tips = data.tips || [];
+  data.profile = data.profile || {};
+  data.programs.forEach(p => { if (!p.goal) p.goal = '增肌'; });
+}
 
 /* ---------- 工具函数 ---------- */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -140,13 +150,24 @@ function isIsolation(name) {
   return /(飞鸟|侧平举|前平举|后束|弯举|下压|腿屈伸|腿弯举|提踵|夹胸|夹|面拉|耸肩|卷腹|臂屈伸|绳索|反向飞鸟)/.test(name);
 }
 
-/* ---------- 选项卡切换 ---------- */
+/* ---------- 选项卡切换（按需渲染，加快首屏打开） ---------- */
+const tabRendered = {};
+function renderTab(tab) {
+  if (tab === 'calendar') renderCalendar();
+  else if (tab === 'diet') renderDiet();
+  else if (tab === 'tips') renderTips();
+  else if (tab === 'stats') renderStats();
+  else if (tab === 'squad') renderSquad();
+  tabRendered[tab] = true;
+}
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+    renderTab(tab);   // 切到哪个就渲染哪个（搭子等始终拉取最新）
   });
 });
 
@@ -236,13 +257,30 @@ document.getElementById('start-session').addEventListener('click', () => {
   renderSessions();
 });
 
+let historyFilter = '全部';
+
+// 填充训练历史的分类筛选下拉
+function fillHistoryFilter() {
+  const sel = document.getElementById('history-filter');
+  const names = [...new Set(data.sessions.map(s => s.programName))];
+  if (historyFilter !== '全部' && !names.includes(historyFilter)) historyFilter = '全部';
+  sel.innerHTML = ['全部', ...names].map(n =>
+    `<option value="${esc(n)}"${n === historyFilter ? ' selected' : ''}>${esc(n === '全部' ? '全部分类' : n)}</option>`).join('');
+}
+document.getElementById('history-filter').addEventListener('change', e => {
+  historyFilter = e.target.value;
+  renderSessions();
+});
+
 function renderSessions() {
+  fillHistoryFilter();
   const list = document.getElementById('sessions-list');
-  if (!data.sessions.length) {
+  const sessions = data.sessions.filter(s => historyFilter === '全部' || s.programName === historyFilter);
+  if (!sessions.length) {
     list.innerHTML = '<div class="empty">还没有训练记录，创建一次训练开始记录吧。</div>';
     return;
   }
-  list.innerHTML = data.sessions.map(s => {
+  list.innerHTML = sessions.map(s => {
     const g = GOAL_GUIDE[s.goal];
     return `
     <div class="session" data-session="${s.id}">
@@ -705,11 +743,11 @@ function renderCalendar() {
   }
   document.getElementById('cal-grid').innerHTML = cells;
 
-  document.querySelectorAll('#cal-grid .cal-cell.has-workout').forEach(c =>
+  // 所有日期均可点击（移动端可正常响应），无训练也能查看
+  document.querySelectorAll('#cal-grid .cal-cell:not(.blank)').forEach(c =>
     c.addEventListener('click', () => {
       calSelected = c.dataset.date;
       renderCalendar();
-      renderCalDetail();
     }));
 
   renderCalDetail();
@@ -719,7 +757,10 @@ function renderCalDetail() {
   const box = document.getElementById('cal-day-detail');
   if (!calSelected) { box.innerHTML = ''; return; }
   const sessions = data.sessions.filter(s => s.date === calSelected);
-  if (!sessions.length) { box.innerHTML = ''; return; }
+  if (!sessions.length) {
+    box.innerHTML = `<div class="card"><div class="empty">${esc(calSelected)} 没有训练记录</div></div>`;
+    return;
+  }
   box.innerHTML = `<div class="card"><h2>${esc(calSelected)} 的训练</h2>
     ${sessions.map(s => `
       <div class="exercise">
@@ -743,6 +784,166 @@ document.getElementById('cal-next').addEventListener('click', () => {
   if (++calMonth > 11) { calMonth = 0; calYear++; }
   renderCalendar();
 });
+
+/* ============================================================
+   饮食营养（身体信息 + 个性化建议 + 食物热量查询）
+   参考：Mifflin-St Jeor (1990)；ISSN 立场声明 (Jäger 2017 蛋白质 / Kerksick 2018)；
+   ACSM/AND/DC 联合营养声明；《运动营养学》《中国食物成分表(第6版)》；USDA FoodData Central。
+   ============================================================ */
+// 每 100g 可食部：kcal 热量、p 蛋白(g)、c 碳水(g)、f 脂肪(g)
+const FOOD_DB = [
+  { n: '白米饭(熟)', kcal: 116, p: 2.6, c: 25.9, f: 0.3 },
+  { n: '大米(生)', kcal: 346, p: 7.4, c: 77.9, f: 0.8 },
+  { n: '馒头', kcal: 223, p: 7.0, c: 47.0, f: 1.1 },
+  { n: '全麦面包', kcal: 246, p: 9.0, c: 46.0, f: 3.4 },
+  { n: '燕麦片', kcal: 367, p: 15.0, c: 61.0, f: 7.0 },
+  { n: '红薯', kcal: 86, p: 1.6, c: 20.1, f: 0.1 },
+  { n: '土豆', kcal: 77, p: 2.0, c: 17.2, f: 0.1 },
+  { n: '玉米(鲜)', kcal: 112, p: 4.0, c: 22.8, f: 1.2 },
+  { n: '面条(熟)', kcal: 110, p: 4.0, c: 23.0, f: 0.5 },
+  { n: '鸡胸肉(生)', kcal: 118, p: 24.0, c: 0, f: 1.9 },
+  { n: '鸡腿肉(去皮)', kcal: 146, p: 19.0, c: 0, f: 7.5 },
+  { n: '鸡蛋', kcal: 144, p: 13.3, c: 2.8, f: 8.8 },
+  { n: '蛋清', kcal: 52, p: 11.0, c: 0.7, f: 0.1 },
+  { n: '牛肉(瘦,生)', kcal: 125, p: 20.2, c: 1.2, f: 4.5 },
+  { n: '猪里脊(生)', kcal: 155, p: 20.2, c: 0.7, f: 7.9 },
+  { n: '三文鱼(生)', kcal: 179, p: 20.0, c: 0, f: 11.0 },
+  { n: '虾仁(生)', kcal: 93, p: 18.6, c: 0.9, f: 0.8 },
+  { n: '金枪鱼(水浸罐)', kcal: 116, p: 26.0, c: 0, f: 1.0 },
+  { n: '北豆腐', kcal: 116, p: 12.2, c: 2.4, f: 6.7 },
+  { n: '全脂牛奶', kcal: 65, p: 3.3, c: 4.9, f: 3.6 },
+  { n: '脱脂牛奶', kcal: 35, p: 3.4, c: 5.0, f: 0.2 },
+  { n: '酸奶(全脂)', kcal: 72, p: 2.5, c: 9.3, f: 2.7 },
+  { n: '希腊酸奶(脱脂)', kcal: 59, p: 10.0, c: 3.6, f: 0.4 },
+  { n: '乳清蛋白粉', kcal: 380, p: 80.0, c: 8.0, f: 6.0 },
+  { n: '西兰花', kcal: 34, p: 2.8, c: 6.6, f: 0.4 },
+  { n: '菠菜', kcal: 24, p: 2.6, c: 3.6, f: 0.3 },
+  { n: '黄瓜', kcal: 16, p: 0.8, c: 3.6, f: 0.2 },
+  { n: '番茄', kcal: 20, p: 0.9, c: 4.0, f: 0.2 },
+  { n: '胡萝卜', kcal: 41, p: 0.9, c: 9.6, f: 0.2 },
+  { n: '生菜', kcal: 15, p: 1.4, c: 2.9, f: 0.2 },
+  { n: '香蕉', kcal: 93, p: 1.4, c: 22.0, f: 0.2 },
+  { n: '苹果', kcal: 54, p: 0.2, c: 14.0, f: 0.2 },
+  { n: '橙子', kcal: 48, p: 0.8, c: 11.1, f: 0.2 },
+  { n: '蓝莓', kcal: 57, p: 0.7, c: 14.5, f: 0.3 },
+  { n: '牛油果', kcal: 160, p: 2.0, c: 8.5, f: 14.7 },
+  { n: '杏仁', kcal: 579, p: 21.0, c: 22.0, f: 50.0 },
+  { n: '花生', kcal: 567, p: 26.0, c: 16.0, f: 49.0 },
+  { n: '核桃', kcal: 654, p: 15.0, c: 14.0, f: 65.0 },
+  { n: '花生酱', kcal: 588, p: 25.0, c: 20.0, f: 50.0 },
+  { n: '橄榄油', kcal: 899, p: 0, c: 0, f: 100.0 },
+  { n: '黑咖啡(无糖)', kcal: 1, p: 0.1, c: 0, f: 0 },
+  { n: '黑巧克力(70%)', kcal: 546, p: 7.8, c: 46.0, f: 31.0 },
+  { n: '白砂糖', kcal: 400, p: 0, c: 100.0, f: 0 },
+];
+
+const ACTIVITY_LABEL = {
+  '1.2': '久坐', '1.375': '轻度', '1.55': '中度', '1.725': '高度', '1.9': '极高',
+};
+
+function computeNutrition(pf) {
+  const w = +pf.weight, h = +pf.height, age = +pf.age, pal = +pf.activity || 1.55;
+  if (!(w > 0) || !(h > 0) || !(age > 0)) return null;
+  // Mifflin-St Jeor 基础代谢率
+  const bmr = pf.gender === 'female'
+    ? 10 * w + 6.25 * h - 5 * age - 161
+    : 10 * w + 6.25 * h - 5 * age + 5;
+  const tdee = bmr * pal;
+  let target, proteinPerKg;
+  if (pf.goal === 'cut') { target = tdee - 500; proteinPerKg = 2.0; }       // 减脂：缺口约 500 kcal，高蛋白保瘦体重
+  else if (pf.goal === 'bulk') { target = tdee + 350; proteinPerKg = 1.8; } // 增肌：盈余约 350 kcal
+  else { target = tdee; proteinPerKg = 1.6; }                               // 维持
+  const protein = proteinPerKg * w;                       // g
+  const fat = Math.max(0.8 * w, target * 0.25 / 9);       // g：≥0.8g/kg 或 25% 热量取大者
+  const carb = Math.max(0, (target - protein * 4 - fat * 9) / 4); // g：余量
+  const bmi = w / ((h / 100) ** 2);
+  return { bmr, tdee, target, protein, fat, carb, bmi };
+}
+
+function bmiCategory(bmi) {
+  // 中国成人标准 (WGOC)
+  if (bmi < 18.5) return '偏瘦';
+  if (bmi < 24) return '正常';
+  if (bmi < 28) return '超重';
+  return '肥胖';
+}
+
+const GOAL_TEXT = {
+  cut: '减脂期：制造约 500 kcal/天热量缺口（每周约减 0.4–0.5 kg）。保持高蛋白(约 2.0 g/kg)以保留肌肉，多吃高饱腹、低能量密度食物（蔬菜、瘦肉、全谷），力量训练维持刺激。',
+  maintain: '维持期：热量与消耗持平。蛋白约 1.6 g/kg，均衡分配碳水与脂肪，关注训练表现与恢复。',
+  bulk: '增肌期：制造约 300–500 kcal/天热量盈余（“干净增肌”每周约增 0.25 kg）。蛋白约 1.8 g/kg，充足碳水支持训练，配合渐进超负荷。',
+};
+
+function renderDiet() {
+  const pf = data.profile || {};
+  // 回填表单
+  if (pf.gender) document.getElementById('pf-gender').value = pf.gender;
+  if (pf.age) document.getElementById('pf-age').value = pf.age;
+  if (pf.height) document.getElementById('pf-height').value = pf.height;
+  if (pf.weight) document.getElementById('pf-weight').value = pf.weight;
+  if (pf.activity) document.getElementById('pf-activity').value = pf.activity;
+  if (pf.goal) document.getElementById('pf-goal').value = pf.goal;
+  renderDietResult();
+  renderFood(document.getElementById('food-search').value);
+}
+
+function renderDietResult() {
+  const box = document.getElementById('diet-result');
+  const n = computeNutrition(data.profile || {});
+  if (!n) { box.innerHTML = '<div class="card"><div class="empty">填写并保存身体信息后，这里会显示个性化饮食建议</div></div>'; return; }
+  const goal = data.profile.goal || 'maintain';
+  box.innerHTML = `
+    <div class="card">
+      <h2>个性化饮食建议</h2>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num">${Math.round(n.target)}</div><div class="lbl">目标热量 (kcal/天)</div></div>
+        <div class="stat-box"><div class="num">${Math.round(n.protein)}</div><div class="lbl">蛋白质 (g)</div></div>
+        <div class="stat-box"><div class="num">${Math.round(n.carb)}</div><div class="lbl">碳水 (g)</div></div>
+        <div class="stat-box"><div class="num">${Math.round(n.fat)}</div><div class="lbl">脂肪 (g)</div></div>
+      </div>
+      <div class="diet-meta">
+        <span>BMR ${Math.round(n.bmr)} kcal</span>
+        <span>TDEE ${Math.round(n.tdee)} kcal</span>
+        <span>BMI ${round1(n.bmi)}（${bmiCategory(n.bmi)}）</span>
+      </div>
+      <div class="content" style="margin-top:10px">${esc(GOAL_TEXT[goal])}</div>
+      <div class="content" style="margin-top:8px">建议蛋白质均分到每餐（每餐约 ${Math.round(n.protein / 4)}–${Math.round(n.protein / 3)} g），训练后补充碳水+蛋白促进恢复。每日饮水约 30–40 ml/kg 体重。</div>
+      <div class="source">公式：Mifflin-St Jeor (BMR) × 活动系数(${ACTIVITY_LABEL[data.profile.activity] || ''})；蛋白/热量区间参考 ISSN 立场声明与《运动营养学》。本建议为一般营养教育，不替代医疗/临床营养诊疗。</div>
+    </div>`;
+}
+
+document.getElementById('pf-save').addEventListener('click', () => {
+  data.profile = {
+    gender: document.getElementById('pf-gender').value,
+    age: document.getElementById('pf-age').value,
+    height: document.getElementById('pf-height').value,
+    weight: document.getElementById('pf-weight').value,
+    activity: document.getElementById('pf-activity').value,
+    goal: document.getElementById('pf-goal').value,
+  };
+  save();
+  renderDietResult();
+  if (!computeNutrition(data.profile)) alert('请完整填写年龄、身高、体重');
+});
+
+function renderFood(query) {
+  const box = document.getElementById('food-result');
+  const q = (query || '').trim();
+  let list = FOOD_DB;
+  if (q) list = FOOD_DB.filter(food => food.n.includes(q));
+  list = list.slice(0, 30);
+  if (!list.length) { box.innerHTML = '<div class="empty">没有找到该食物</div>'; return; }
+  box.innerHTML = `
+    <table class="sets-table strength-table" style="margin-top:10px">
+      <thead><tr><th>食物 (每100g)</th><th>热量</th><th>蛋白</th><th>碳水</th><th>脂肪</th></tr></thead>
+      <tbody>${list.map(food => `<tr>
+        <td>${esc(food.n)}</td><td>${food.kcal} kcal</td>
+        <td>${food.p} g</td><td>${food.c} g</td><td>${food.f} g</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+document.getElementById('food-search').addEventListener('input', e => renderFood(e.target.value));
 
 /* ============================================================
    搭子社群（组队训练）— 调用本地后端 /api/squad/*
@@ -934,16 +1135,8 @@ function squadErrorCard(msg) {
   </div></div>`;
 }
 
-/* ---------- 选项卡切换时刷新对应内容 ---------- */
-document.querySelector('.tab-btn[data-tab="stats"]').addEventListener('click', renderStats);
-document.querySelector('.tab-btn[data-tab="calendar"]').addEventListener('click', renderCalendar);
-document.querySelector('.tab-btn[data-tab="squad"]').addEventListener('click', renderSquad);
-
-/* ---------- 初始化 ---------- */
+/* ---------- 初始化（仅渲染首屏“训练”页，其余按需渲染，加快打开速度） ---------- */
 document.getElementById('session-date').value = todayStr();
 fillGoalSelect();
 renderPrograms();
 renderSessions();
-renderTips();
-renderStats();
-renderCalendar();
