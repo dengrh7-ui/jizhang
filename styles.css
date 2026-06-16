@@ -458,41 +458,31 @@ textarea { resize: vertical; }
 .limb, .joint { position: absolute; transform-style: preserve-3d; }
 .joint { transform-origin: 50% 0; }
 
-/* 肌肉束：半透明肌肉色 + 沿长轴的肌纤维纹理 + 立体高光 */
-.bar {
-  position: absolute; top: 0; border-radius: 48% / 14%;
-  background:
-    linear-gradient(90deg, rgba(150,52,52,.30), rgba(214,108,104,.66) 46%, rgba(150,52,52,.30)),
-    repeating-linear-gradient(90deg, rgba(120,28,28,.16) 0 1.5px, rgba(255,255,255,.05) 1.5px 4px);
-  box-shadow: inset -2px -3px 6px rgba(90,20,20,.35), inset 2px 2px 5px rgba(255,210,200,.35);
-  opacity: .92;
-}
-.bar.hot {
-  background:
-    linear-gradient(90deg, rgba(180,30,30,.5), rgba(245,90,80,.92) 46%, rgba(180,30,30,.5)),
-    repeating-linear-gradient(90deg, rgba(150,10,10,.25) 0 1.5px, rgba(255,255,255,.08) 1.5px 4px);
-  box-shadow: inset -2px -3px 7px rgba(120,10,10,.5), inset 2px 2px 6px rgba(255,200,190,.5),
-    0 0 10px rgba(245,80,70,.6);
+/* 分块肌群：半透明肌肉 SVG */
+.seg { position: absolute; top: 0; overflow: visible; display: block; }
+.skin { fill: rgba(228,198,182,.20); stroke: rgba(150,110,95,.35); stroke-width: .5; }
+.msc { fill: rgba(158,56,56,.34); stroke: rgba(120,28,28,.45); stroke-width: .4; transition: fill .15s; }
+.msc.hot {
+  fill: rgba(243,86,74,.92);
+  stroke: rgba(180,30,24,.7);
+  filter: drop-shadow(0 0 2.5px rgba(243,80,70,.85));
   animation: musclePulse 1.2s ease-in-out infinite;
 }
 
-/* 躯干：更宽、带胸腹起伏感 */
 .limb.spine { top: 24px; left: 0; transform: translateZ(2px); }
-.b-torso {
-  left: -19px; width: 38px; height: 82px; border-radius: 44% 44% 38% 38% / 22% 22% 16% 16%;
-}
+.b-torso { left: -19px; width: 38px; height: 84px; }
 .limb.shoulders { top: 4px; left: 0; transform: translateZ(7px); }
 .limb.armL { top: 0; left: -19px; }
 .limb.armR { top: 0; left: 19px; }
 .b-arm { left: -6px; width: 12px; height: 33px; }
 .limb.fore { top: 33px; left: 0; }
-.b-fore { left: -5px; width: 9px; height: 30px; }
-.limb.hips { top: 82px; left: 0; transform: translateZ(2px); }
+.b-fore { left: -4.5px; width: 9px; height: 30px; }
+.limb.hips { top: 84px; left: 0; transform: translateZ(2px); }
 .limb.thighL { top: 0; left: -10px; }
 .limb.thighR { top: 0; left: 10px; }
-.b-thigh { left: -8px; width: 15px; height: 46px; }
+.b-thigh { left: -7.5px; width: 15px; height: 46px; }
 .limb.shank { top: 46px; left: 0; }
-.b-shank { left: -6px; width: 11px; height: 44px; }
+.b-shank { left: -5.5px; width: 11px; height: 44px; }
 
 .plane-tag { text-align: center; font-size: .82rem; color: var(--muted); margin-top: 8px; }
 

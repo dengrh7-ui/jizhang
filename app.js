@@ -698,7 +698,39 @@ const FIG_SEL = {
   shoulders: 'lm-shoulders', man: 'lm-man',
 };
 
-let anatomyPlane = 'orbit';   // orbit | sag | fro | tra
+let anatomyPlane = 'orbit';   // orbit | fro
+
+// 各身体段的分块肌群（半透明 SVG）。class mm-<key> 用于按所选肌肉高亮。
+const SEG = {
+  torso: `<svg class="seg b-torso" viewBox="0 0 38 84" preserveAspectRatio="none">
+    <path class="skin" d="M3 9 Q19 1 35 9 L33 60 Q30 78 19 82 Q8 78 5 60 Z"/>
+    <path class="msc mm-traps" d="M9 6 L19 2 L19 13 L6 15 Z"/><path class="msc mm-traps" d="M29 6 L19 2 L19 13 L32 15 Z"/>
+    <path class="msc mm-pec" d="M6 16 Q18 13 18.5 17 L18.5 31 Q10 33 5 27 Z"/><path class="msc mm-pec" d="M32 16 Q20 13 19.5 17 L19.5 31 Q28 33 33 27 Z"/>
+    <path class="msc mm-lats" d="M4 28 L9 31 L8 54 L4 45 Z"/><path class="msc mm-lats" d="M34 28 L29 31 L30 54 L34 45 Z"/>
+    <path class="msc mm-oblique" d="M8 35 L13 37 L12 60 L9 57 Z"/><path class="msc mm-oblique" d="M30 35 L25 37 L26 60 L29 57 Z"/>
+    <g class="msc mm-rectus"><rect x="15" y="33" width="8" height="8.5" rx="2"/><rect x="15" y="43" width="8" height="8.5" rx="2"/><rect x="15" y="53" width="8" height="8.5" rx="2"/></g>
+    <path class="msc mm-erector" d="M16 62 L22 62 L21 76 L17 76 Z"/>
+    <path class="msc mm-glutes" d="M7 71 Q13 67 18 73 L17 81 Q10 82 7 78 Z"/><path class="msc mm-glutes" d="M31 71 Q25 67 20 73 L21 81 Q28 82 31 78 Z"/>
+  </svg>`,
+  arm: `<svg class="seg b-arm" viewBox="0 0 12 33" preserveAspectRatio="none">
+    <path class="skin" d="M2 3 Q6 0 10 3 L9 31 Q6 33 3 31 Z"/>
+    <ellipse class="msc mm-delt" cx="6" cy="5" rx="5" ry="4"/>
+    <ellipse class="msc mm-reardelt" cx="9.2" cy="6" rx="2.4" ry="3.2"/>
+    <ellipse class="msc mm-biceps" cx="4.4" cy="18" rx="3" ry="9"/>
+    <ellipse class="msc mm-triceps" cx="8" cy="18" rx="2.6" ry="9"/>
+  </svg>`,
+  fore: `<svg class="seg b-fore" viewBox="0 0 9 30" preserveAspectRatio="none">
+    <path class="skin" d="M2 1 L7 1 L6 29 L3 29 Z"/><ellipse class="msc mm-forearm" cx="4.5" cy="11" rx="3" ry="9"/>
+  </svg>`,
+  thigh: `<svg class="seg b-thigh" viewBox="0 0 15 46" preserveAspectRatio="none">
+    <path class="skin" d="M2 2 Q7.5 0 13 2 L12 44 Q7.5 46 3 44 Z"/>
+    <ellipse class="msc mm-quads" cx="6" cy="22" rx="4.5" ry="18"/>
+    <ellipse class="msc mm-hams" cx="11" cy="24" rx="3" ry="16"/>
+  </svg>`,
+  shank: `<svg class="seg b-shank" viewBox="0 0 11 44" preserveAspectRatio="none">
+    <path class="skin" d="M2 1 Q5.5 0 9 1 L8 43 Q5.5 44 3 43 Z"/><ellipse class="msc mm-calves" cx="5.5" cy="14" rx="4" ry="11"/>
+  </svg>`,
+};
 
 function figure3D(m) {
   const an = ANATOMY_ANIM[m.key] || { parts: [], hot: [] };
@@ -712,7 +744,6 @@ function figure3D(m) {
     animOf[FIG_SEL[p.sel]] = `${name} 2.6s ease-in-out infinite`;
   });
   const A = cls => animOf[cls] ? ` style="animation:${animOf[cls]}"` : '';
-  const hot = b => (an.hot || []).includes(b) ? ' hot' : '';
   const vcls = { orbit: 'v-orbit', fro: 'v-fro' }[anatomyPlane] || 'v-orbit';
 
   return `<style>${kf}</style>
@@ -721,25 +752,25 @@ function figure3D(m) {
       <div class="man lm-man"${A('lm-man')}>
         <div class="head"></div>
         <div class="limb spine"><div class="joint j-spine"${A('j-spine')}>
-          <div class="bar b-torso${hot('torso')}"></div>
+          ${SEG.torso}
           <div class="limb shoulders lm-shoulders"${A('lm-shoulders')}>
             <div class="limb armL"><div class="joint j-armL"${A('j-armL')}>
-              <div class="bar b-arm${hot('armL')}"></div>
-              <div class="limb fore"><div class="joint j-foreL"${A('j-foreL')}><div class="bar b-fore"></div></div></div>
+              ${SEG.arm}
+              <div class="limb fore"><div class="joint j-foreL"${A('j-foreL')}>${SEG.fore}</div></div>
             </div></div>
             <div class="limb armR"><div class="joint j-armR"${A('j-armR')}>
-              <div class="bar b-arm${hot('armR')}"></div>
-              <div class="limb fore"><div class="joint j-foreR"${A('j-foreR')}><div class="bar b-fore"></div></div></div>
+              ${SEG.arm}
+              <div class="limb fore"><div class="joint j-foreR"${A('j-foreR')}>${SEG.fore}</div></div>
             </div></div>
           </div>
           <div class="limb hips">
             <div class="limb thighL"><div class="joint j-thighL"${A('j-thighL')}>
-              <div class="bar b-thigh${hot('thighL')}"></div>
-              <div class="limb shank"><div class="joint j-shankL"${A('j-shankL')}><div class="bar b-shank${hot('shankL')}"></div></div></div>
+              ${SEG.thigh}
+              <div class="limb shank"><div class="joint j-shankL"${A('j-shankL')}>${SEG.shank}</div></div>
             </div></div>
             <div class="limb thighR"><div class="joint j-thighR"${A('j-thighR')}>
-              <div class="bar b-thigh${hot('thighR')}"></div>
-              <div class="limb shank"><div class="joint j-shankR"${A('j-shankR')}><div class="bar b-shank${hot('shankR')}"></div></div></div>
+              ${SEG.thigh}
+              <div class="limb shank"><div class="joint j-shankR"${A('j-shankR')}>${SEG.shank}</div></div>
             </div></div>
           </div>
         </div></div>
@@ -794,6 +825,7 @@ function renderAnatomy() {
     </div>`;
 
   box.querySelectorAll(`[data-m="${anatomySel}"]`).forEach(el => el.classList.add('active'));
+  box.querySelectorAll(`.mm-${anatomySel}`).forEach(el => el.classList.add('hot'));
   box.querySelectorAll('[data-anat-view]').forEach(b =>
     b.addEventListener('click', () => { anatomyView = b.dataset.anatView; anatomySel = null; renderAnatomy(); }));
   box.querySelectorAll('[data-anat-m]').forEach(b =>
