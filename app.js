@@ -745,68 +745,199 @@ document.getElementById('cal-next').addEventListener('click', () => {
 });
 
 /* ============================================================
-   AI 教练（运动 / 营养）— 调用本地后端 /api/coach
+   搭子社群（组队训练）— 调用本地后端 /api/squad/*
+   说明：需后端 node server.js 运行，小队数据在所有成员间共享。
+   身份：本机生成 userId + 昵称，保存在 localStorage。
    ============================================================ */
-let coachMode = '运动';
+const SQUAD_KEY = 'dxl-squad';
+let squadIdentity = loadSquadIdentity();
+let currentSquad = null;
+let squadViewDate = todayStr();
 
-document.querySelectorAll('[data-coach-mode]').forEach(c =>
-  c.addEventListener('click', () => {
-    document.querySelectorAll('[data-coach-mode]').forEach(x => x.classList.remove('active'));
-    c.classList.add('active');
-    coachMode = c.dataset.coachMode;
-  }));
+function loadSquadIdentity() {
+  try {
+    const raw = localStorage.getItem(SQUAD_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* ignore */ }
+  return { userId: 'u_' + uid(), userName: '', squadId: '' };
+}
+function saveSquadIdentity() { localStorage.setItem(SQUAD_KEY, JSON.stringify(squadIdentity)); }
 
-// 把近期训练记录整理成给 Claude 的文字上下文（含 RPE 与估算 1RM）
-function buildTrainingContext() {
-  return data.sessions.slice(0, 5).map(s => {
-    const lines = s.exercises.map(ex => {
-      const done = ex.sets.filter(set => Number(set.weight) > 0 && Number(set.reps) > 0)
-        .map(set => `${set.weight}kg×${set.reps}${set.rpe ? `@RPE${set.rpe}` : ''}`).join(', ');
-      const best = bestSetByE1RM(ex.sets);
-      const e = best ? `（≈1RM ${round1(best.e1rm)}kg）` : '';
-      return `  - ${ex.name}：${done || '未记录'}${e}`;
-    }).join('\n');
-    return `${s.date} ${s.programName}${s.goal ? `[目标:${s.goal}]` : ''}\n${lines}`;
-  }).join('\n');
+async function squadApi(path, body) {
+  const resp = await fetch(path, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : {});
+  const result = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(result.error || '请求失败');
+  return result;
 }
 
-document.getElementById('coach-send').addEventListener('click', async () => {
-  const input = document.getElementById('coach-input');
-  const message = input.value.trim();
-  const box = document.getElementById('coach-response');
-  if (!message) { alert('请输入问题'); return; }
-
-  const useData = document.getElementById('coach-use-data').checked;
-  box.innerHTML = '<div class="card"><div class="empty">正在思考…</div></div>';
-
-  try {
-    const resp = await fetch('/api/coach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mode: coachMode,
-        message,
-        context: useData ? buildTrainingContext() : '',
-      }),
-    });
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || '请求失败');
-    box.innerHTML = `<div class="card">
-      <span class="badge 训练要点">${esc(coachMode)}建议</span>
-      <div class="content" style="white-space:pre-wrap;font-size:.92rem;margin-top:6px">${esc(result.text)}</div>
-    </div>`;
-  } catch (e) {
-    box.innerHTML = `<div class="card"><div class="content" style="color:var(--danger)">
-      出错了：${esc(e.message)}<br><br>
-      若提示无法连接，请确认已用 <code>node server.js</code> 启动后端，
-      并配置了 ANTHROPIC_API_KEY（详见 README）。直接用 python 静态服务器或双击打开时，AI 助手不可用。
-    </div></div>`;
+async function renderSquad() {
+  const box = document.getElementById('squad-content');
+  // 已加入小队：拉取最新
+  if (squadIdentity.squadId) {
+    box.innerHTML = '<div class="card"><div class="empty">加载中…</div></div>';
+    try {
+      const { squad } = await squadApi(`/api/squad/get?id=${encodeURIComponent(squadIdentity.squadId)}`);
+      currentSquad = squad;
+      renderSquadView();
+    } catch (e) {
+      if (/不存在/.test(e.message)) { squadIdentity.squadId = ''; saveSquadIdentity(); return renderSquad(); }
+      box.innerHTML = squadErrorCard(e.message);
+    }
+    return;
   }
-});
+  // 未加入：创建 / 加入
+  box.innerHTML = `
+    <div class="card">
+      <h2>找个搭子，一起练</h2>
+      <p class="hint">创建小队或用邀请码加入。加入后，队长可编辑每天的训练计划，队员都能看到。</p>
+      <div class="form-row">
+        <label>你的昵称</label>
+        <input type="text" id="squad-name-input" maxlength="20" placeholder="例如：阿德" value="${esc(squadIdentity.userName)}">
+      </div>
+    </div>
+    <div class="card">
+      <h2>创建小队</h2>
+      <div class="form-row">
+        <label>小队名称</label>
+        <input type="text" id="squad-create-name" maxlength="30" placeholder="例如：周末撸铁团">
+      </div>
+      <button class="btn primary" id="squad-create-btn">创建并成为队长</button>
+    </div>
+    <div class="card">
+      <h2>加入小队</h2>
+      <div class="form-row">
+        <label>邀请码（6 位）</label>
+        <input type="text" id="squad-join-code" maxlength="6" placeholder="例如：A1B2C3" style="text-transform:uppercase">
+      </div>
+      <button class="btn primary" id="squad-join-btn">加入</button>
+    </div>`;
+
+  document.getElementById('squad-create-btn').addEventListener('click', () => doCreateOrJoin('create'));
+  document.getElementById('squad-join-btn').addEventListener('click', () => doCreateOrJoin('join'));
+}
+
+function readSquadName() {
+  const n = document.getElementById('squad-name-input').value.trim();
+  if (n) { squadIdentity.userName = n; saveSquadIdentity(); }
+  return squadIdentity.userName;
+}
+
+async function doCreateOrJoin(kind) {
+  const userName = readSquadName();
+  if (!userName) { alert('请先填写你的昵称'); return; }
+  try {
+    let result;
+    if (kind === 'create') {
+      const name = document.getElementById('squad-create-name').value.trim();
+      if (!name) { alert('请填写小队名称'); return; }
+      result = await squadApi('/api/squad/create', { name, userId: squadIdentity.userId, userName });
+    } else {
+      const code = document.getElementById('squad-join-code').value.trim().toUpperCase();
+      if (!code) { alert('请填写邀请码'); return; }
+      result = await squadApi('/api/squad/join', { code, userId: squadIdentity.userId, userName });
+    }
+    squadIdentity.squadId = result.squad.id; saveSquadIdentity();
+    currentSquad = result.squad;
+    renderSquadView();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function renderSquadView() {
+  const s = currentSquad;
+  const box = document.getElementById('squad-content');
+  const captain = isSquadCaptain();
+  const plan = s.plans[squadViewDate];
+  const captainName = (s.members.find(m => m.id === s.captainId) || {}).name || '队长';
+
+  box.innerHTML = `
+    <div class="card">
+      <div class="head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div>
+          <div class="name" style="font-size:1.15rem;font-weight:600">${esc(s.name)}
+            ${captain ? '<span class="goal-tag">队长</span>' : ''}</div>
+          <div class="hint" style="margin:6px 0 0">邀请码 <b class="squad-code">${esc(s.code)}</b> · ${s.members.length} 人</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn small" id="squad-refresh">刷新</button>
+          <button class="btn small danger" id="squad-leave">退出</button>
+        </div>
+      </div>
+      <div class="squad-members">${s.members.map(m =>
+        `<span class="member-chip${m.id === s.captainId ? ' captain' : ''}">${esc(m.name)}${m.id === s.captainId ? ' ⭐' : ''}</span>`).join('')}</div>
+    </div>
+
+    <div class="card">
+      <h2>当天训练计划</h2>
+      <div class="form-row">
+        <label>日期</label>
+        <input type="date" id="squad-date" value="${squadViewDate}">
+      </div>
+      ${captain ? `
+        <div class="form-row">
+          <label>训练计划（队长编辑，全队可见）</label>
+          <textarea id="squad-plan-text" rows="6" placeholder="例如：\n胸 + 三头\n1. 杠铃卧推 4×6-8 @RPE8\n2. 上斜哑铃卧推 3×8-10\n3. 绳索夹胸 3×12-15\n组间休息 2-3 分钟">${esc(plan ? plan.text : '')}</textarea>
+        </div>
+        <button class="btn primary" id="squad-save-plan">保存计划</button>
+      ` : `
+        ${plan
+          ? `<div class="content" style="white-space:pre-wrap">${esc(plan.text)}</div>
+             <div class="source">由 ${esc(plan.updatedBy)} 更新于 ${esc((plan.updatedAt || '').slice(0, 16).replace('T', ' '))}</div>`
+          : `<div class="empty">${esc(captainName)} 还没有安排这一天的训练</div>`}
+      `}
+    </div>`;
+
+  document.getElementById('squad-refresh').addEventListener('click', renderSquad);
+  document.getElementById('squad-leave').addEventListener('click', doLeaveSquad);
+  document.getElementById('squad-date').addEventListener('change', e => {
+    squadViewDate = e.target.value || todayStr();
+    renderSquadView();
+  });
+  if (captain) {
+    document.getElementById('squad-save-plan').addEventListener('click', doSavePlan);
+  }
+}
+
+function isSquadCaptain() { return currentSquad && currentSquad.captainId === squadIdentity.userId; }
+
+async function doSavePlan() {
+  const text = document.getElementById('squad-plan-text').value;
+  try {
+    const { squad } = await squadApi('/api/squad/plan', {
+      squadId: currentSquad.id, userId: squadIdentity.userId,
+      userName: squadIdentity.userName, date: squadViewDate, text,
+    });
+    currentSquad = squad;
+    renderSquadView();
+    alert('已保存，队员刷新即可看到。');
+  } catch (e) { alert(e.message); }
+}
+
+async function doLeaveSquad() {
+  if (!confirm('确定退出该小队？')) return;
+  try {
+    await squadApi('/api/squad/leave', { squadId: currentSquad.id, userId: squadIdentity.userId });
+  } catch (e) { /* 忽略，本地仍清理 */ }
+  squadIdentity.squadId = ''; saveSquadIdentity();
+  currentSquad = null;
+  renderSquad();
+}
+
+function squadErrorCard(msg) {
+  return `<div class="card"><div class="content" style="color:var(--danger)">
+    无法连接社群服务：${esc(msg)}<br><br>
+    「搭子」社群需要后端运行。请在电脑上用 <code>node server.js</code> 启动，
+    手机与电脑连同一 WiFi 后访问。直接双击网页或用纯静态服务器时，社群功能不可用。
+  </div></div>`;
+}
 
 /* ---------- 选项卡切换时刷新对应内容 ---------- */
 document.querySelector('.tab-btn[data-tab="stats"]').addEventListener('click', renderStats);
 document.querySelector('.tab-btn[data-tab="calendar"]').addEventListener('click', renderCalendar);
+document.querySelector('.tab-btn[data-tab="squad"]').addEventListener('click', renderSquad);
 
 /* ---------- 初始化 ---------- */
 document.getElementById('session-date').value = todayStr();

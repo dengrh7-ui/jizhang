@@ -2,12 +2,13 @@
    德训录 — 轻量后端（零依赖，Node 18+）
    职责：
    1) 托管静态文件（index.html / styles.css / app.js）
-   2) 提供 POST /api/coach，安全代理调用 Claude（API Key 仅存于后端环境变量）
+   2) 「搭子」社群：创建/加入小队、队长编辑当天训练计划、队员查看
+
+   数据持久化到本目录下的 squads.json（纯文件，无需数据库）。
 
    运行：
-     export ANTHROPIC_API_KEY=sk-ant-xxx
      node server.js
-   然后访问 http://localhost:8000
+   然后访问 http://localhost:8000（手机同 WiFi 访问 http://你的IP:8000）
    ============================================================ */
 
 const http = require('http');
@@ -15,36 +16,30 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 8000;
-const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
+const DB_FILE = path.join(__dirname, 'squads.json');
 
-// 两个“技能”角色：运动教练 与 运动营养师（权威书籍背书）
-const SYSTEM_PROMPTS = {
-  运动: `你是一名认证的力量与体能训练教练（CSCS 水平）。你的建议须基于以下权威来源的循证训练科学：
-NSCA《Essentials of Strength Training and Conditioning（体能训练精要）》、ACSM 运动测试与处方指南、
-Brad Schoenfeld《Science and Development of Muscle Hypertrophy（肌肥大科学）》、
-Eric Helms《The Muscle and Strength Pyramid（力量与围度金字塔）》、
-Mike Israetel / Renaissance Periodization 的容量地标（MEV/MAV/MRV）、
-Mark Rippetoe《Starting Strength（力量训练基础）》、Zatsiorsky《力量训练的科学与实践》。
+/* ---------- 数据持久化 ---------- */
+let db = { squads: {} };
+try {
+  if (fs.existsSync(DB_FILE)) db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+} catch (e) { console.warn('读取 squads.json 失败，使用空库', e.message); }
+function persist() {
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
+  catch (e) { console.error('写入 squads.json 失败', e.message); }
+}
 
-回答要求：
-1. 必须使用专业术语与单位：组数(Sets)、次数(Reps)、强度(%1RM)、估算 1RM、RPE/RIR、组间休息(秒/分钟)、训练容量(Volume，有效组数)、Tempo。
-2. 给出具体数字区间，例如“力量 1–5 Reps @≥85% 1RM、组间 3–5 分钟”“增肌 6–12 Reps @67–85% 1RM、每肌群每周 10–20 有效组、每周≥2 次”。
-3. 遵循渐进超负荷与双递进法则；必要时说明周期化与减载(Deload)。
-4. 结构清晰（可分点/表格），先给处方再给要点，最后给安全提示。
-5. 若用户提供了训练记录，请结合其估算 1RM、RPE 与容量给出个性化、可执行的下一步。
-全部用简体中文回答。`,
-  营养: `你是一名注册运动营养师（基于循证营养学）。你的建议须参考 ISSN（国际运动营养学会）立场声明、
-ACSM/AND 联合营养声明，以及 Helms《力量与围度金字塔·营养篇》等权威来源。
-
-回答要求：
-1. 使用专业术语与单位：总热量(kcal)、宏量营养素(蛋白质/碳水/脂肪，单位 g 或 g/kg 体重)、热量盈余/缺口、餐次与训练前后营养窗口。
-2. 给出具体可执行的数字，例如“增肌期蛋白质 1.6–2.2 g/kg/天、热量盈余约 +250–500 kcal/天”“减脂期热量缺口约 -300–500 kcal/天、保持高蛋白以保留瘦体重”。
-3. 结构清晰，先给总量与三大宏量，再给餐次安排与食物举例，最后给补剂与注意事项（如肌酸 3–5 g/天）。
-4. 结合用户的训练目标与记录给个性化建议。
-5. 必须提醒：以上为一般性营养教育，不能替代医疗或临床营养诊疗；有疾病或特殊情况请咨询医生/注册营养师。
-全部用简体中文回答。`,
-};
+/* ---------- 工具 ---------- */
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 去除易混字符
+  let c;
+  do { c = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join(''); }
+  while (Object.values(db.squads).some(s => s.code === c));
+  return c;
+}
+function clean(s) { return String(s == null ? '' : s).trim(); }
+function isCaptain(squad, userId) { return squad && squad.captainId === userId; }
+function isMember(squad, userId) { return squad && squad.members.some(m => m.id === userId); }
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -54,9 +49,7 @@ const MIME = {
 };
 
 const server = http.createServer((req, res) => {
-  if (req.method === 'POST' && req.url === '/api/coach') {
-    return handleCoach(req, res);
-  }
+  if (req.url.startsWith('/api/')) return handleApi(req, res);
   return serveStatic(req, res);
 });
 
@@ -64,10 +57,9 @@ const server = http.createServer((req, res) => {
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
-  // 防止目录穿越
   const filePath = path.join(__dirname, path.normalize(urlPath).replace(/^(\.\.[/\\])+/, ''));
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); return res.end('Forbidden'); }
-
+  if (path.basename(filePath) === 'squads.json') { res.writeHead(403); return res.end('Forbidden'); }
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); return res.end('Not Found'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] || 'application/octet-stream' });
@@ -75,46 +67,75 @@ function serveStatic(req, res) {
   });
 }
 
-/* ---------- Claude 代理 ---------- */
-function handleCoach(req, res) {
+/* ---------- API 路由 ---------- */
+function handleApi(req, res) {
+  if (req.method === 'GET' && req.url.startsWith('/api/squad/get')) {
+    const u = new URL(req.url, 'http://x');
+    const squad = db.squads[u.searchParams.get('id')];
+    if (!squad) return json(res, 404, { error: '小队不存在' });
+    return json(res, 200, { squad });
+  }
+  if (req.method !== 'POST') return json(res, 404, { error: '未知接口' });
+
   let body = '';
   req.on('data', c => { body += c; if (body.length > 1e6) req.destroy(); });
-  req.on('end', async () => {
-    if (!API_KEY) return json(res, 500, { error: '后端未配置 ANTHROPIC_API_KEY 环境变量' });
-    let payload;
-    try { payload = JSON.parse(body); } catch { return json(res, 400, { error: '请求格式错误' }); }
+  req.on('end', () => {
+    let p;
+    try { p = JSON.parse(body || '{}'); } catch { return json(res, 400, { error: '请求格式错误' }); }
+    const userId = clean(p.userId);
+    const userName = clean(p.userName).slice(0, 20) || '队员';
+    if (!userId) return json(res, 400, { error: '缺少用户标识' });
 
-    const mode = payload.mode === '营养' ? '营养' : '运动';
-    const message = (payload.message || '').toString().slice(0, 4000).trim();
-    if (!message) return json(res, 400, { error: '请输入问题' });
-
-    let userContent = message;
-    if (payload.context) userContent += `\n\n【我的近期训练记录】\n${String(payload.context).slice(0, 3000)}`;
-
-    try {
-      const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 1024,
-          system: SYSTEM_PROMPTS[mode],
-          messages: [{ role: 'user', content: userContent }],
-        }),
-      });
-      const result = await upstream.json();
-      if (!upstream.ok) {
-        return json(res, upstream.status, { error: result?.error?.message || '调用 Claude 失败' });
-      }
-      const text = (result.content || []).map(b => b.text || '').join('').trim();
-      return json(res, 200, { text });
-    } catch (e) {
-      return json(res, 502, { error: '无法连接 Claude 服务：' + e.message });
+    if (req.url === '/api/squad/create') {
+      const name = clean(p.name).slice(0, 30);
+      if (!name) return json(res, 400, { error: '请填写小队名称' });
+      const id = genId();
+      const squad = {
+        id, name, code: genCode(), captainId: userId,
+        createdAt: new Date().toISOString(),
+        members: [{ id: userId, name: userName }],
+        plans: {},
+      };
+      db.squads[id] = squad; persist();
+      return json(res, 200, { squad });
     }
+
+    if (req.url === '/api/squad/join') {
+      const code = clean(p.code).toUpperCase();
+      const squad = Object.values(db.squads).find(s => s.code === code);
+      if (!squad) return json(res, 404, { error: '邀请码无效' });
+      if (squad.members.length >= 50) return json(res, 400, { error: '小队人数已满' });
+      if (!isMember(squad, userId)) squad.members.push({ id: userId, name: userName });
+      else { const m = squad.members.find(m => m.id === userId); if (m) m.name = userName; }
+      persist();
+      return json(res, 200, { squad });
+    }
+
+    if (req.url === '/api/squad/plan') {
+      const squad = db.squads[clean(p.squadId)];
+      if (!squad) return json(res, 404, { error: '小队不存在' });
+      if (!isCaptain(squad, userId)) return json(res, 403, { error: '只有队长可以编辑训练计划' });
+      const date = clean(p.date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: '日期无效' });
+      const text = clean(p.text).slice(0, 4000);
+      if (text) squad.plans[date] = { text, updatedBy: userName, updatedAt: new Date().toISOString() };
+      else delete squad.plans[date];
+      persist();
+      return json(res, 200, { squad });
+    }
+
+    if (req.url === '/api/squad/leave') {
+      const squad = db.squads[clean(p.squadId)];
+      if (!squad) return json(res, 404, { error: '小队不存在' });
+      squad.members = squad.members.filter(m => m.id !== userId);
+      // 队长退出且仍有成员 → 移交给第一位成员
+      if (squad.captainId === userId && squad.members.length) squad.captainId = squad.members[0].id;
+      if (!squad.members.length) delete db.squads[squad.id];
+      persist();
+      return json(res, 200, { ok: true });
+    }
+
+    return json(res, 404, { error: '未知接口' });
   });
 }
 
@@ -125,5 +146,5 @@ function json(res, code, obj) {
 
 server.listen(PORT, () => {
   console.log(`德训录 已启动： http://localhost:${PORT}`);
-  if (!API_KEY) console.warn('⚠️  未检测到 ANTHROPIC_API_KEY，AI 助手将不可用（其余功能正常）。');
+  console.log('「搭子」社群需要本后端运行；记录/日历/统计等本地功能离线也可用。');
 });

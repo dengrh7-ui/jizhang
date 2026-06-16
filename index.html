@@ -19,7 +19,7 @@
   <button class="tab-btn" data-tab="programs">项目</button>
   <button class="tab-btn" data-tab="tips">要点</button>
   <button class="tab-btn" data-tab="stats">统计</button>
-  <button class="tab-btn" data-tab="coach">助手</button>
+  <button class="tab-btn" data-tab="squad">搭子</button>
 </nav>
 
 <main>
@@ -180,24 +180,9 @@
     </div>
   </section>
 
-  <!-- ========== AI 助手 ========== -->
-  <section id="tab-coach" class="tab-panel">
-    <div class="card">
-      <h2>AI 教练</h2>
-      <p class="hint">由 Claude 提供运动与营养建议。需先启动本地后端并配置 API Key（见 README）。</p>
-      <div class="tip-filters">
-        <button class="chip active" data-coach-mode="运动">运动建议</button>
-        <button class="chip" data-coach-mode="营养">营养建议</button>
-      </div>
-      <label class="coach-context">
-        <input type="checkbox" id="coach-use-data"> 结合我的近期训练记录
-      </label>
-      <div class="form-row">
-        <textarea id="coach-input" rows="3" placeholder="例如：帮我安排一周的胸背训练分化，每次 60 分钟"></textarea>
-      </div>
-      <button class="btn primary" id="coach-send">发送</button>
-    </div>
-    <div id="coach-response"></div>
+  <!-- ========== 搭子社群 ========== -->
+  <section id="tab-squad" class="tab-panel">
+    <div id="squad-content"></div>
   </section>
 </main>
 
