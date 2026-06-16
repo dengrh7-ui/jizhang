@@ -698,38 +698,69 @@ const FIG_SEL = {
   shoulders: 'lm-shoulders', man: 'lm-man',
 };
 
-let anatomyPlane = 'orbit';   // orbit | fro
+let anatomyPlane = 'fro';   // fro=定格(随所选肌肉转到正/背面) | orbit=旋转
 
-// 各身体段的分块肌群（半透明 SVG）。class mm-<key> 用于按所选肌肉高亮。
+// 各身体段：正面 fr / 背面 bk 两套分块肌群（半透明 SVG，含肌纤维走向线与名称 title）
+// class mm-<key> 用于按所选肌肉高亮
+const SEG_DATA = {
+  torso: {
+    vb: '0 0 38 84',
+    skin: '<path class="skin" d="M3 9 Q19 1 35 9 L33 60 Q30 78 19 82 Q8 78 5 60 Z"/>',
+    fr: `
+      <g class="msc mm-pec"><title>胸大肌</title><path d="M6 16 Q18 13 18.5 17 L18.5 31 Q10 33 5 27 Z"/>
+        <line class="fiber" x1="6" y1="19" x2="18" y2="20"/><line class="fiber" x1="6" y1="23" x2="18" y2="25"/><line class="fiber" x1="7" y1="27" x2="18" y2="29"/></g>
+      <g class="msc mm-pec"><title>胸大肌</title><path d="M32 16 Q20 13 19.5 17 L19.5 31 Q28 33 33 27 Z"/>
+        <line class="fiber" x1="32" y1="19" x2="20" y2="20"/><line class="fiber" x1="32" y1="23" x2="20" y2="25"/><line class="fiber" x1="31" y1="27" x2="20" y2="29"/></g>
+      <g class="msc mm-oblique"><title>腹外斜肌</title><path d="M8 35 L13 37 L12 60 L9 57 Z"/><line class="fiber" x1="9" y1="38" x2="12" y2="52"/></g>
+      <g class="msc mm-oblique"><title>腹外斜肌</title><path d="M30 35 L25 37 L26 60 L29 57 Z"/><line class="fiber" x1="29" y1="38" x2="26" y2="52"/></g>
+      <g class="msc mm-rectus"><title>腹直肌</title><rect x="15" y="33" width="8" height="8.5" rx="2"/><rect x="15" y="43" width="8" height="8.5" rx="2"/><rect x="15" y="53" width="8" height="8.5" rx="2"/><line class="fiber" x1="19" y1="33" x2="19" y2="62"/></g>`,
+    bk: `
+      <g class="msc mm-traps"><title>斜方肌</title><path d="M9 6 L19 2 L19 14 L6 15 Z"/><path d="M29 6 L19 2 L19 14 L32 15 Z"/>
+        <line class="fiber" x1="19" y1="3" x2="8" y2="14"/><line class="fiber" x1="19" y1="3" x2="30" y2="14"/></g>
+      <g class="msc mm-lats"><title>背阔肌</title><path d="M4 26 L10 30 L9 56 L4 46 Z"/><path d="M34 26 L28 30 L29 56 L34 46 Z"/>
+        <line class="fiber" x1="6" y1="30" x2="8" y2="54"/><line class="fiber" x1="32" y1="30" x2="30" y2="54"/></g>
+      <g class="msc mm-erector"><title>竖脊肌</title><path d="M15 16 L23 16 L22 62 L16 62 Z"/><line class="fiber" x1="17.5" y1="18" x2="17.5" y2="60"/><line class="fiber" x1="20.5" y1="18" x2="20.5" y2="60"/></g>
+      <g class="msc mm-glutes"><title>臀大肌</title><path d="M7 64 Q13 60 18 67 L17 80 Q10 82 6 76 Z"/><path d="M31 64 Q25 60 20 67 L21 80 Q28 82 32 76 Z"/>
+        <line class="fiber" x1="8" y1="66" x2="15" y2="78"/><line class="fiber" x1="30" y1="66" x2="23" y2="78"/></g>`,
+  },
+  arm: {
+    vb: '0 0 12 33',
+    skin: '<path class="skin" d="M2 3 Q6 0 10 3 L9 31 Q6 33 3 31 Z"/>',
+    fr: `<g class="msc mm-delt"><title>三角肌</title><ellipse cx="6" cy="5" rx="5" ry="4"/><line class="fiber" x1="3" y1="4" x2="6" y2="9"/><line class="fiber" x1="9" y1="4" x2="6" y2="9"/></g>
+      <g class="msc mm-biceps"><title>肱二头肌</title><ellipse cx="5" cy="18" rx="3.3" ry="9"/><line class="fiber" x1="5" y1="10" x2="5" y2="26"/></g>`,
+    bk: `<g class="msc mm-reardelt"><title>三角肌后束</title><ellipse cx="6" cy="5" rx="5" ry="4"/><line class="fiber" x1="3" y1="4" x2="6" y2="9"/><line class="fiber" x1="9" y1="4" x2="6" y2="9"/></g>
+      <g class="msc mm-triceps"><title>肱三头肌</title><ellipse cx="6" cy="18" rx="3.5" ry="9"/><line class="fiber" x1="6" y1="10" x2="6" y2="26"/><line class="fiber" x1="4.4" y1="12" x2="4.4" y2="24"/></g>`,
+  },
+  fore: {
+    vb: '0 0 9 30',
+    skin: '<path class="skin" d="M2 1 L7 1 L6 29 L3 29 Z"/>',
+    fr: '<g class="msc mm-forearm"><title>前臂屈肌群</title><ellipse cx="4.5" cy="12" rx="3" ry="9"/><line class="fiber" x1="4.5" y1="4" x2="4.5" y2="20"/></g>',
+    bk: '<g class="msc mm-forearm"><title>前臂伸肌群</title><ellipse cx="4.5" cy="12" rx="3" ry="9"/><line class="fiber" x1="4.5" y1="4" x2="4.5" y2="20"/></g>',
+  },
+  thigh: {
+    vb: '0 0 15 46',
+    skin: '<path class="skin" d="M2 2 Q7.5 0 13 2 L12 44 Q7.5 46 3 44 Z"/>',
+    fr: '<g class="msc mm-quads"><title>股四头肌</title><ellipse cx="7.5" cy="22" rx="5" ry="18"/><line class="fiber" x1="6" y1="6" x2="6" y2="40"/><line class="fiber" x1="9" y1="6" x2="9" y2="40"/><line class="fiber" x1="7.5" y1="5" x2="7.5" y2="41"/></g>',
+    bk: '<g class="msc mm-hams"><title>腘绳肌</title><ellipse cx="7.5" cy="24" rx="5" ry="17"/><line class="fiber" x1="6" y1="8" x2="6" y2="40"/><line class="fiber" x1="9" y1="8" x2="9" y2="40"/></g>',
+  },
+  shank: {
+    vb: '0 0 11 44',
+    skin: '<path class="skin" d="M2 1 Q5.5 0 9 1 L8 43 Q5.5 44 3 43 Z"/>',
+    fr: '<g class="msc mm-tib"><title>胫骨前肌</title><ellipse cx="5.5" cy="16" rx="3" ry="11"/><line class="fiber" x1="5.5" y1="6" x2="5.5" y2="26"/></g>',
+    bk: '<g class="msc mm-calves"><title>腓肠肌</title><ellipse cx="5.5" cy="13" rx="4" ry="10"/><line class="fiber" x1="4" y1="4" x2="4" y2="22"/><line class="fiber" x1="7" y1="4" x2="7" y2="22"/></g>',
+  },
+};
+function segWrap(name) {
+  const d = SEG_DATA[name];
+  return `<div class="segwrap sw-${name}">
+    <svg class="face fr" viewBox="${d.vb}" preserveAspectRatio="none">${d.skin}${d.fr}</svg>
+    <svg class="face bk" viewBox="${d.vb}" preserveAspectRatio="none">${d.skin}${d.bk}</svg>
+  </div>`;
+}
 const SEG = {
-  torso: `<svg class="seg b-torso" viewBox="0 0 38 84" preserveAspectRatio="none">
-    <path class="skin" d="M3 9 Q19 1 35 9 L33 60 Q30 78 19 82 Q8 78 5 60 Z"/>
-    <path class="msc mm-traps" d="M9 6 L19 2 L19 13 L6 15 Z"/><path class="msc mm-traps" d="M29 6 L19 2 L19 13 L32 15 Z"/>
-    <path class="msc mm-pec" d="M6 16 Q18 13 18.5 17 L18.5 31 Q10 33 5 27 Z"/><path class="msc mm-pec" d="M32 16 Q20 13 19.5 17 L19.5 31 Q28 33 33 27 Z"/>
-    <path class="msc mm-lats" d="M4 28 L9 31 L8 54 L4 45 Z"/><path class="msc mm-lats" d="M34 28 L29 31 L30 54 L34 45 Z"/>
-    <path class="msc mm-oblique" d="M8 35 L13 37 L12 60 L9 57 Z"/><path class="msc mm-oblique" d="M30 35 L25 37 L26 60 L29 57 Z"/>
-    <g class="msc mm-rectus"><rect x="15" y="33" width="8" height="8.5" rx="2"/><rect x="15" y="43" width="8" height="8.5" rx="2"/><rect x="15" y="53" width="8" height="8.5" rx="2"/></g>
-    <path class="msc mm-erector" d="M16 62 L22 62 L21 76 L17 76 Z"/>
-    <path class="msc mm-glutes" d="M7 71 Q13 67 18 73 L17 81 Q10 82 7 78 Z"/><path class="msc mm-glutes" d="M31 71 Q25 67 20 73 L21 81 Q28 82 31 78 Z"/>
-  </svg>`,
-  arm: `<svg class="seg b-arm" viewBox="0 0 12 33" preserveAspectRatio="none">
-    <path class="skin" d="M2 3 Q6 0 10 3 L9 31 Q6 33 3 31 Z"/>
-    <ellipse class="msc mm-delt" cx="6" cy="5" rx="5" ry="4"/>
-    <ellipse class="msc mm-reardelt" cx="9.2" cy="6" rx="2.4" ry="3.2"/>
-    <ellipse class="msc mm-biceps" cx="4.4" cy="18" rx="3" ry="9"/>
-    <ellipse class="msc mm-triceps" cx="8" cy="18" rx="2.6" ry="9"/>
-  </svg>`,
-  fore: `<svg class="seg b-fore" viewBox="0 0 9 30" preserveAspectRatio="none">
-    <path class="skin" d="M2 1 L7 1 L6 29 L3 29 Z"/><ellipse class="msc mm-forearm" cx="4.5" cy="11" rx="3" ry="9"/>
-  </svg>`,
-  thigh: `<svg class="seg b-thigh" viewBox="0 0 15 46" preserveAspectRatio="none">
-    <path class="skin" d="M2 2 Q7.5 0 13 2 L12 44 Q7.5 46 3 44 Z"/>
-    <ellipse class="msc mm-quads" cx="6" cy="22" rx="4.5" ry="18"/>
-    <ellipse class="msc mm-hams" cx="11" cy="24" rx="3" ry="16"/>
-  </svg>`,
-  shank: `<svg class="seg b-shank" viewBox="0 0 11 44" preserveAspectRatio="none">
-    <path class="skin" d="M2 1 Q5.5 0 9 1 L8 43 Q5.5 44 3 43 Z"/><ellipse class="msc mm-calves" cx="5.5" cy="14" rx="4" ry="11"/>
-  </svg>`,
+  get torso() { return segWrap('torso'); }, get arm() { return segWrap('arm'); },
+  get fore() { return segWrap('fore'); }, get thigh() { return segWrap('thigh'); },
+  get shank() { return segWrap('shank'); },
 };
 
 function figure3D(m) {
@@ -744,11 +775,15 @@ function figure3D(m) {
     animOf[FIG_SEL[p.sel]] = `${name} 2.6s ease-in-out infinite`;
   });
   const A = cls => animOf[cls] ? ` style="animation:${animOf[cls]}"` : '';
-  const vcls = { orbit: 'v-orbit', fro: 'v-fro' }[anatomyPlane] || 'v-orbit';
+  const orbit = anatomyPlane === 'orbit';
+  const faceDeg = m.view === 'back' ? 180 : 0;   // 背部肌肉自动转到背面观
+  const figStyle = orbit ? '' : ` style="transform:rotateX(-6deg) rotateY(${faceDeg}deg)"`;
+  const vcls = orbit ? 'v-orbit' : 'v-face';
 
   return `<style>${kf}</style>
   <div class="scene3d">
-    <div class="fig3d ${vcls}">
+    <div class="fig-name">${esc(m.name)} · <span>${esc(m.en)}</span></div>
+    <div class="fig3d ${vcls}"${figStyle}>
       <div class="man lm-man"${A('lm-man')}>
         <div class="head"></div>
         <div class="limb spine"><div class="joint j-spine"${A('j-spine')}>
@@ -786,12 +821,12 @@ function renderAnatomy() {
   if (!anatomySel || !muscles.some(m => m.key === anatomySel)) anatomySel = muscles[0].key;
   const sel = ANATOMY.find(m => m.key === anatomySel);
   const an = ANATOMY_ANIM[sel.key] || {};
-  const planes = [['orbit', '旋转'], ['fro', '正面']];
+  const planes = [['fro', '定格'], ['orbit', '旋转']];
 
   box.innerHTML = `
     <div class="card">
       <h2>动态肌肉解剖 · 3D</h2>
-      <p class="hint">点击人体图或肌肉名 → 选中肌肉。3D 小人演示该肌肉的主要训练动作，可环绕或从矢状面/冠状面/水平面观察。</p>
+      <p class="hint">点击人体图或肌肉名 → 选中肌肉。半透明 3D 人体演示该肌肉的主要训练动作，并自动转到正/背面观；可切“旋转”环绕查看。</p>
       <div class="anat-toggle">
         <button class="chip ${anatomyView === 'front' ? 'active' : ''}" data-anat-view="front">前侧</button>
         <button class="chip ${anatomyView === 'back' ? 'active' : ''}" data-anat-view="back">后侧</button>

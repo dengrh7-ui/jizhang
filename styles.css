@@ -458,31 +458,45 @@ textarea { resize: vertical; }
 .limb, .joint { position: absolute; transform-style: preserve-3d; }
 .joint { transform-origin: 50% 0; }
 
-/* 分块肌群：半透明肌肉 SVG */
-.seg { position: absolute; top: 0; overflow: visible; display: block; }
+/* 分块肌群：正/背两面半透明肌肉 SVG */
+.segwrap { position: absolute; top: 0; transform-style: preserve-3d; }
+.face { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.face.bk { transform: rotateY(180deg); }
 .skin { fill: rgba(228,198,182,.20); stroke: rgba(150,110,95,.35); stroke-width: .5; }
 .msc { fill: rgba(158,56,56,.34); stroke: rgba(120,28,28,.45); stroke-width: .4; transition: fill .15s; }
+.fiber { stroke: rgba(110,24,24,.42); stroke-width: .35; fill: none; }
 .msc.hot {
   fill: rgba(243,86,74,.92);
   stroke: rgba(180,30,24,.7);
   filter: drop-shadow(0 0 2.5px rgba(243,80,70,.85));
   animation: musclePulse 1.2s ease-in-out infinite;
 }
+.msc.hot .fiber { stroke: rgba(255,228,222,.75); stroke-width: .4; }
+
+/* 名称浮层 */
+.fig-name {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
+  background: rgba(255,255,255,.82); color: var(--text);
+  font-size: .82rem; font-weight: 600; padding: 3px 12px; border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.12); white-space: nowrap;
+}
+.fig-name span { color: var(--muted); font-weight: 400; font-size: .72rem; }
 
 .limb.spine { top: 24px; left: 0; transform: translateZ(2px); }
-.b-torso { left: -19px; width: 38px; height: 84px; }
+.sw-torso { left: -19px; width: 38px; height: 84px; }
 .limb.shoulders { top: 4px; left: 0; transform: translateZ(7px); }
 .limb.armL { top: 0; left: -19px; }
 .limb.armR { top: 0; left: 19px; }
-.b-arm { left: -6px; width: 12px; height: 33px; }
+.sw-arm { left: -6px; width: 12px; height: 33px; }
 .limb.fore { top: 33px; left: 0; }
-.b-fore { left: -4.5px; width: 9px; height: 30px; }
+.sw-fore { left: -4.5px; width: 9px; height: 30px; }
 .limb.hips { top: 84px; left: 0; transform: translateZ(2px); }
 .limb.thighL { top: 0; left: -10px; }
 .limb.thighR { top: 0; left: 10px; }
-.b-thigh { left: -7.5px; width: 15px; height: 46px; }
+.sw-thigh { left: -7.5px; width: 15px; height: 46px; }
 .limb.shank { top: 46px; left: 0; }
-.b-shank { left: -5.5px; width: 11px; height: 44px; }
+.sw-shank { left: -5.5px; width: 11px; height: 44px; }
 
 .plane-tag { text-align: center; font-size: .82rem; color: var(--muted); margin-top: 8px; }
 
