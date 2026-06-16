@@ -656,21 +656,94 @@ let anatomyView = 'front';
 let anatomySel = null;
 
 // 关节动作动画（SMIL，Safari 兼容）：固定近端骨 + 绕关节摆动的远端骨 + 脉动的“工作肌肉”
-function hingeSVG(act) {
-  if (!act) return '';
-  const px = 70, py = 84, bone = 42;
-  return `<svg class="hinge" viewBox="0 0 140 145" aria-label="${esc(act.label)}">
-    <line x1="${px}" y1="${py}" x2="${px}" y2="${py - 44}" class="bone-fixed"/>
-    <g>
-      <line x1="${px}" y1="${py}" x2="${px}" y2="${py + bone}" class="bone-move"/>
-      <animateTransform attributeName="transform" type="rotate"
-        values="${act.from} ${px} ${py}; ${act.to} ${px} ${py}; ${act.from} ${px} ${py}"
-        keyTimes="0;0.5;1" dur="2.4s" calcMode="spline"
-        keySplines="0.42 0 0.2 1; 0.42 0 0.2 1" repeatCount="indefinite"/>
+// 类真人小人动作演示：每块肌肉对应一组关节驱动（rotate/translate）+ 在小人身上高亮的肌肉块
+// 关节支点（静息站姿）：肩(64,70)/(96,70) 肘(64,102)/(96,102) 髋中(80,150) 膝(72,194)/(88,194)
+const ANATOMY_ANIM = {
+  delt:     { fig: { armL: { from: 0, to: 78 }, armR: { from: 0, to: -78 } },
+              hi: [{ g: 'armL', cx: 64, cy: 74, rx: 7, ry: 7 }, { g: 'armR', cx: 96, cy: 74, rx: 7, ry: 7 }] },
+  pec:      { fig: { armL: { from: 55, to: 12 }, armR: { from: -55, to: -12 } },
+              hi: [{ g: 'torso', cx: 80, cy: 84, rx: 16, ry: 8 }] },
+  biceps:   { fig: { foreL: { from: 0, to: -145 }, foreR: { from: 0, to: 145 } },
+              hi: [{ g: 'armL', cx: 64, cy: 88, rx: 5, ry: 12 }, { g: 'armR', cx: 96, cy: 88, rx: 5, ry: 12 }] },
+  triceps:  { fig: { foreL: { from: -120, to: -5 }, foreR: { from: 120, to: 5 } },
+              hi: [{ g: 'armL', cx: 64, cy: 88, rx: 5, ry: 12 }, { g: 'armR', cx: 96, cy: 88, rx: 5, ry: 12 }] },
+  rectus:   { fig: { torso: { from: 0, to: 40 } },
+              hi: [{ g: 'torso', cx: 80, cy: 120, rx: 9, ry: 18 }] },
+  oblique:  { fig: { torso: { from: -16, to: 16 } },
+              hi: [{ g: 'torso', cx: 68, cy: 118, rx: 5, ry: 14 }, { g: 'torso', cx: 92, cy: 118, rx: 5, ry: 14 }] },
+  quads:    { fig: { shankL: { from: 72, to: 0 }, shankR: { from: 72, to: 0 } },
+              hi: [{ g: 'thighL', cx: 72, cy: 172, rx: 7, ry: 18 }, { g: 'thighR', cx: 88, cy: 172, rx: 7, ry: 18 }] },
+  traps:    { fig: { armL: { tx: 0, ty: -8 }, armR: { tx: 0, ty: -8 } },
+              hi: [{ g: 'torso', cx: 80, cy: 64, rx: 14, ry: 8 }] },
+  reardelt: { fig: { armL: { from: 12, to: 60 }, armR: { from: -12, to: -60 } },
+              hi: [{ g: 'armL', cx: 64, cy: 74, rx: 7, ry: 7 }, { g: 'armR', cx: 96, cy: 74, rx: 7, ry: 7 }] },
+  lats:     { fig: { armL: { from: 150, to: 14 }, armR: { from: -150, to: -14 } },
+              hi: [{ g: 'torso', cx: 70, cy: 110, rx: 7, ry: 16 }, { g: 'torso', cx: 90, cy: 110, rx: 7, ry: 16 }] },
+  erector:  { fig: { torso: { from: 35, to: -5 } },
+              hi: [{ g: 'torso', cx: 80, cy: 130, rx: 6, ry: 16 }] },
+  glutes:   { fig: { torso: { from: 42, to: 2 } },
+              hi: [{ g: 'torso', cx: 80, cy: 146, rx: 12, ry: 7 }] },
+  hams:     { fig: { shankL: { from: 0, to: 95 }, shankR: { from: 0, to: 95 } },
+              hi: [{ g: 'thighL', cx: 72, cy: 172, rx: 7, ry: 18 }, { g: 'thighR', cx: 88, cy: 172, rx: 7, ry: 18 }] },
+  calves:   { fig: { whole: { tx: 0, ty: -7 } },
+              hi: [{ g: 'shankL', cx: 72, cy: 214, rx: 6, ry: 14 }, { g: 'shankR', cx: 88, cy: 214, rx: 6, ry: 14 }] },
+};
+
+const SMIL_ATTRS = 'calcMode="spline" keyTimes="0;0.5;1" keySplines="0.42 0 0.2 1;0.42 0 0.2 1" dur="2.6s" repeatCount="indefinite"';
+
+function figureSVG(m) {
+  const an = ANATOMY_ANIM[m.key] || { fig: {}, hi: [] };
+  const fig = an.fig || {};
+  const rot = (part, px, py) => {
+    const s = fig[part]; if (!s || s.from === undefined) return '';
+    return `<animateTransform attributeName="transform" type="rotate" ${SMIL_ATTRS}
+      values="${s.from} ${px} ${py};${s.to} ${px} ${py};${s.from} ${px} ${py}"/>`;
+  };
+  const tr = (part) => {
+    const s = fig[part]; if (!s || s.tx === undefined) return '';
+    return `<animateTransform attributeName="transform" type="translate" ${SMIL_ATTRS}
+      values="0 0;${s.tx} ${s.ty};0 0"/>`;
+  };
+  const hi = (g) => (an.hi || []).filter(h => h.g === g)
+    .map(h => `<ellipse class="fig-muscle" cx="${h.cx}" cy="${h.cy}" rx="${h.rx}" ry="${h.ry}"/>`).join('');
+
+  return `<svg class="figure" viewBox="0 0 160 252" aria-label="${esc(m.act.label)}">
+    <g>${tr('whole')}
+      <g>${rot('thighL', 72, 150)}
+        <line class="seg" x1="72" y1="150" x2="72" y2="194"/>${hi('thighL')}
+        <g>${rot('shankL', 72, 194)}
+          <line class="seg" x1="72" y1="194" x2="72" y2="236"/>
+          <line class="seg" x1="72" y1="236" x2="83" y2="240"/>${hi('shankL')}
+        </g>
+      </g>
+      <g>${rot('thighR', 88, 150)}
+        <line class="seg" x1="88" y1="150" x2="88" y2="194"/>${hi('thighR')}
+        <g>${rot('shankR', 88, 194)}
+          <line class="seg" x1="88" y1="194" x2="88" y2="236"/>
+          <line class="seg" x1="88" y1="236" x2="99" y2="240"/>${hi('shankR')}
+        </g>
+      </g>
+      <g>${rot('torso', 80, 150)}
+        <path class="fig-torso" d="M64 68 L96 68 L90 150 L70 150 Z"/>
+        <line class="seg" x1="80" y1="56" x2="80" y2="68"/>
+        <circle class="fig-head" cx="80" cy="42" r="13"/>${hi('torso')}
+        <g>${rot('armL', 64, 70)}${tr('armL')}
+          <line class="seg" x1="64" y1="70" x2="64" y2="102"/>${hi('armL')}
+          <g>${rot('foreL', 64, 102)}
+            <line class="seg" x1="64" y1="102" x2="64" y2="132"/>
+            <circle class="fig-hand" cx="64" cy="134" r="3.5"/>
+          </g>
+        </g>
+        <g>${rot('armR', 96, 70)}${tr('armR')}
+          <line class="seg" x1="96" y1="70" x2="96" y2="102"/>${hi('armR')}
+          <g>${rot('foreR', 96, 102)}
+            <line class="seg" x1="96" y1="102" x2="96" y2="132"/>
+            <circle class="fig-hand" cx="96" cy="134" r="3.5"/>
+          </g>
+        </g>
+      </g>
     </g>
-    <circle cx="${px}" cy="${py - 8}" r="7" class="muscle-pulse"/>
-    <circle cx="${px}" cy="${py}" r="4" class="joint"/>
-    <text x="70" y="140" class="hinge-label">${esc(act.label)}</text>
+    <text x="80" y="250" class="hinge-label">${esc(m.act.label)}</text>
   </svg>`;
 }
 
@@ -693,7 +766,7 @@ function renderAnatomy() {
         <div class="anat-side">
           <div class="anat-chips">${muscles.map(m =>
             `<button class="chip ${m.key === anatomySel ? 'active' : ''}" data-anat-m="${m.key}">${esc(m.name)}</button>`).join('')}</div>
-          ${hingeSVG(sel.act)}
+          ${figureSVG(sel)}
         </div>
       </div>
       <div class="anat-detail">
