@@ -713,14 +713,11 @@ function figure3D(m) {
   });
   const A = cls => animOf[cls] ? ` style="animation:${animOf[cls]}"` : '';
   const hot = b => (an.hot || []).includes(b) ? ' hot' : '';
-  const vcls = { orbit: 'v-orbit', sag: 'v-sag', fro: 'v-fro', tra: 'v-tra' }[anatomyPlane] || 'v-orbit';
+  const vcls = { orbit: 'v-orbit', fro: 'v-fro' }[anatomyPlane] || 'v-orbit';
 
   return `<style>${kf}</style>
   <div class="scene3d">
     <div class="fig3d ${vcls}">
-      <div class="ring r-fro"><b>冠状面</b></div>
-      <div class="ring r-sag"><b>矢状面</b></div>
-      <div class="ring r-tra"><b>水平面</b></div>
       <div class="man lm-man"${A('lm-man')}>
         <div class="head"></div>
         <div class="limb spine"><div class="joint j-spine"${A('j-spine')}>
@@ -749,7 +746,7 @@ function figure3D(m) {
       </div>
     </div>
   </div>
-  <div class="plane-tag">${esc(an.plane || m.act.label)}</div>`;
+  <div class="plane-tag">${esc(an.primary ? an.primary + '（' + (an.plane || '') + '）' : (m.act ? m.act.label : ''))}</div>`;
 }
 
 function renderAnatomy() {
@@ -758,7 +755,7 @@ function renderAnatomy() {
   if (!anatomySel || !muscles.some(m => m.key === anatomySel)) anatomySel = muscles[0].key;
   const sel = ANATOMY.find(m => m.key === anatomySel);
   const an = ANATOMY_ANIM[sel.key] || {};
-  const planes = [['orbit', '环绕'], ['sag', '矢状面'], ['fro', '冠状面'], ['tra', '水平面']];
+  const planes = [['orbit', '旋转'], ['fro', '正面']];
 
   box.innerHTML = `
     <div class="card">

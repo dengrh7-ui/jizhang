@@ -429,71 +429,72 @@ textarea { resize: vertical; }
 .anat-side { flex: 1; min-width: 150px; }
 .anat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 
-/* 3D（CSS 3D）类真人动作演示 */
+/* 3D（CSS 3D）半透明肌肉实体人体 · 动态演示 */
 .anat-planes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .scene3d {
   width: 100%; height: 280px;
-  perspective: 540px; perspective-origin: 50% 42%;
-  background: radial-gradient(circle at 50% 38%, #eef2f8, #e0e5ee);
+  perspective: 560px; perspective-origin: 50% 42%;
+  background: radial-gradient(circle at 50% 36%, #f3f0ee, #e7e0db);
   border-radius: 12px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
 .fig3d { position: relative; width: 130px; height: 240px; transform-style: preserve-3d; }
-.fig3d.v-orbit { animation: orbit3d 10s linear infinite; }
+.fig3d.v-orbit { animation: orbit3d 11s linear infinite; }
 @keyframes orbit3d {
-  from { transform: rotateX(-12deg) rotateY(0deg); }
-  to   { transform: rotateX(-12deg) rotateY(360deg); }
+  from { transform: rotateX(-10deg) rotateY(-28deg); }
+  50%  { transform: rotateX(-10deg) rotateY(28deg); }
+  to   { transform: rotateX(-10deg) rotateY(-28deg); }
 }
-.fig3d.v-fro { transform: rotateX(-8deg) rotateY(0deg); }
-.fig3d.v-sag { transform: rotateX(-8deg) rotateY(90deg); }
-.fig3d.v-tra { transform: rotateX(74deg) rotateY(0deg); }
+.fig3d.v-fro { transform: rotateX(-6deg) rotateY(0deg); }
 
-/* 三平面参考圆环 */
-.ring {
-  position: absolute; top: 50%; left: 50%;
-  width: 150px; height: 150px; margin: -75px 0 0 -75px;
-  border: 2px dashed; border-radius: 50%; transform-style: preserve-3d;
-}
-.ring b { position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
-  font-size: 9px; font-weight: 600; background: var(--surface); padding: 0 4px; border-radius: 4px; }
-.ring.r-fro { border-color: rgba(0,113,227,.45); }
-.ring.r-fro b { color: var(--primary); }
-.ring.r-sag { transform: rotateY(90deg); border-color: rgba(215,0,21,.4); }
-.ring.r-sag b { color: var(--danger); }
-.ring.r-tra { transform: rotateX(90deg); border-color: rgba(29,140,62,.45); }
-.ring.r-tra b { color: var(--success); }
-
-/* 小人骨架（自上而下悬挂，关节绕顶部旋转） */
+/* 半透明肌肉人体：自上而下悬挂，关节绕顶部旋转 */
 .man { position: absolute; top: 8px; left: 50%; transform-style: preserve-3d; }
-.man .head { position: absolute; top: -2px; left: -13px; width: 26px; height: 26px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #d6dde8, #aab4c4); }
+.man .head {
+  position: absolute; top: -2px; left: -13px; width: 26px; height: 28px;
+  border-radius: 50% 50% 48% 48%;
+  background: radial-gradient(circle at 38% 32%, rgba(226,196,180,.92), rgba(196,150,128,.8));
+  box-shadow: inset -3px -3px 6px rgba(120,70,55,.35);
+}
 .limb, .joint { position: absolute; transform-style: preserve-3d; }
 .joint { transform-origin: 50% 0; }
-.bar {
-  position: absolute; top: 0; border-radius: 8px;
-  background: linear-gradient(90deg, #93a0b4, #cdd5e1 45%, #93a0b4);
-  box-shadow: inset 0 0 4px rgba(0,0,0,.18);
-}
-.bar.hot { background: linear-gradient(90deg, #0a59c2, #5aa2ff 45%, #0a59c2);
-  animation: musclePulse 1.2s ease-in-out infinite; }
 
-.limb.spine { top: 24px; left: 0; }
-.b-torso { left: -17px; width: 34px; height: 80px; border-radius: 14px; }
-.limb.shoulders { top: 6px; left: 0; }
-.limb.armL { top: 0; left: -17px; }
-.limb.armR { top: 0; left: 17px; }
-.b-arm { left: -5px; width: 10px; height: 32px; }
-.limb.fore { top: 32px; left: 0; }
-.b-fore { left: -4px; width: 8px; height: 30px; }
-.limb.hips { top: 80px; left: 0; }
+/* 肌肉束：半透明肌肉色 + 沿长轴的肌纤维纹理 + 立体高光 */
+.bar {
+  position: absolute; top: 0; border-radius: 48% / 14%;
+  background:
+    linear-gradient(90deg, rgba(150,52,52,.30), rgba(214,108,104,.66) 46%, rgba(150,52,52,.30)),
+    repeating-linear-gradient(90deg, rgba(120,28,28,.16) 0 1.5px, rgba(255,255,255,.05) 1.5px 4px);
+  box-shadow: inset -2px -3px 6px rgba(90,20,20,.35), inset 2px 2px 5px rgba(255,210,200,.35);
+  opacity: .92;
+}
+.bar.hot {
+  background:
+    linear-gradient(90deg, rgba(180,30,30,.5), rgba(245,90,80,.92) 46%, rgba(180,30,30,.5)),
+    repeating-linear-gradient(90deg, rgba(150,10,10,.25) 0 1.5px, rgba(255,255,255,.08) 1.5px 4px);
+  box-shadow: inset -2px -3px 7px rgba(120,10,10,.5), inset 2px 2px 6px rgba(255,200,190,.5),
+    0 0 10px rgba(245,80,70,.6);
+  animation: musclePulse 1.2s ease-in-out infinite;
+}
+
+/* 躯干：更宽、带胸腹起伏感 */
+.limb.spine { top: 24px; left: 0; transform: translateZ(2px); }
+.b-torso {
+  left: -19px; width: 38px; height: 82px; border-radius: 44% 44% 38% 38% / 22% 22% 16% 16%;
+}
+.limb.shoulders { top: 4px; left: 0; transform: translateZ(7px); }
+.limb.armL { top: 0; left: -19px; }
+.limb.armR { top: 0; left: 19px; }
+.b-arm { left: -6px; width: 12px; height: 33px; }
+.limb.fore { top: 33px; left: 0; }
+.b-fore { left: -5px; width: 9px; height: 30px; }
+.limb.hips { top: 82px; left: 0; transform: translateZ(2px); }
 .limb.thighL { top: 0; left: -10px; }
 .limb.thighR { top: 0; left: 10px; }
-.b-thigh { left: -6px; width: 12px; height: 44px; }
-.limb.shank { top: 44px; left: 0; }
-.b-shank { left: -5px; width: 10px; height: 42px; }
+.b-thigh { left: -8px; width: 15px; height: 46px; }
+.limb.shank { top: 46px; left: 0; }
+.b-shank { left: -6px; width: 11px; height: 44px; }
 
-.plane-tag { text-align: center; font-size: .8rem; color: var(--muted); margin-top: 8px; }
-.hinge-label { fill: var(--muted); font-size: 9px; text-anchor: middle; }
+.plane-tag { text-align: center; font-size: .82rem; color: var(--muted); margin-top: 8px; }
 
 .anat-detail { margin-top: 14px; }
 .anat-detail .title { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; }
