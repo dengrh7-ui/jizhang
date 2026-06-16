@@ -107,7 +107,7 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) return JSON.parse(raw);
   } catch (e) { console.warn('读取存储失败', e); }
-  return structuredClone(DEFAULT_DATA);
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 function save() { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
