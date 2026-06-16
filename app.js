@@ -155,7 +155,7 @@ const tabRendered = {};
 function renderTab(tab) {
   if (tab === 'calendar') renderCalendar();
   else if (tab === 'diet') renderDiet();
-  else if (tab === 'tips') renderTips();
+  else if (tab === 'tips') { renderAnatomy(); renderTips(); }
   else if (tab === 'stats') renderStats();
   else if (tab === 'squad') renderSquad();
   tabRendered[tab] = true;
@@ -538,6 +538,186 @@ function renderTips() {
       data.tips = data.tips.filter(t => t.id !== b.dataset.delTip);
       save(); renderTips();
     }));
+}
+
+/* ============================================================
+   动态肌肉解剖（要点页内）
+   参考：《格氏解剖学(第41版)》、《奈特人体解剖学图谱》、
+        Delavier《力量训练解剖学》、Neumann《肌骨系统运动学》、《运动解剖学》教材
+   ============================================================ */
+const ANATOMY_SRC = '参考书籍：《格氏解剖学(第41版)》· 《奈特人体解剖学图谱》· Delavier《力量训练解剖学》· Neumann《肌骨系统运动学》· 《运动解剖学》(体育院校教材)';
+
+// 灰色人体底图（前/后通用）
+const BODY_BG = `
+  <circle cx="100" cy="30" r="17" class="body-bg"/>
+  <rect x="92" y="44" width="16" height="12" class="body-bg"/>
+  <path d="M70 58 Q100 50 130 58 L126 150 Q100 158 74 150 Z" class="body-bg"/>
+  <rect x="48" y="62" width="16" height="58" rx="8" class="body-bg"/>
+  <rect x="136" y="62" width="16" height="58" rx="8" class="body-bg"/>
+  <rect x="45" y="116" width="14" height="56" rx="7" class="body-bg"/>
+  <rect x="141" y="116" width="14" height="56" rx="7" class="body-bg"/>
+  <rect x="72" y="150" width="56" height="26" rx="10" class="body-bg"/>
+  <rect x="74" y="172" width="22" height="72" rx="11" class="body-bg"/>
+  <rect x="104" y="172" width="22" height="72" rx="11" class="body-bg"/>
+  <rect x="76" y="246" width="18" height="70" rx="9" class="body-bg"/>
+  <rect x="106" y="246" width="18" height="70" rx="9" class="body-bg"/>`;
+
+// 每块肌肉：解剖数据 + 身体图形(左右) + 关节动作动画参数 act{from,to,label}
+const ANATOMY = [
+  // —— 前侧 ——
+  { key: 'delt', name: '三角肌', en: 'Deltoid', view: 'front',
+    shapes: '<ellipse class="m-region" data-m="delt" cx="63" cy="70" rx="13" ry="12"/><ellipse class="m-region" data-m="delt" cx="137" cy="70" rx="13" ry="12"/>',
+    origin: '锁骨外侧1/3、肩峰、肩胛冈', insertion: '肱骨三角肌粗隆',
+    action: '前束—肩前屈/内旋；中束—肩外展；后束—肩后伸/外旋', exercises: '推举、侧平举、前平举、面拉',
+    synergist: '冈上肌、胸大肌(前屈)、斜方肌(上回旋)', antagonist: '背阔肌、对侧束',
+    cue: '侧平举肘领先、小指略高；勿耸肩借力', act: { from: 5, to: 95, label: '肩外展（侧向抬臂）' } },
+  { key: 'pec', name: '胸大肌', en: 'Pectoralis major', view: 'front',
+    shapes: '<ellipse class="m-region" data-m="pec" cx="86" cy="88" rx="15" ry="11"/><ellipse class="m-region" data-m="pec" cx="114" cy="88" rx="15" ry="11"/>',
+    origin: '锁骨内侧半、胸骨、上6肋软骨', insertion: '肱骨大结节嵴',
+    action: '肩水平内收、前屈、内旋（把上臂拉向中线）', exercises: '卧推、上斜卧推、双杠臂屈伸、绳索夹胸',
+    synergist: '三角肌前束、肱三头肌、前锯肌', antagonist: '背阔肌、三角肌后束、斜方肌中下部',
+    cue: '底部充分伸展，想象“用大臂把两手挤向中线”', act: { from: -45, to: 45, label: '肩水平内收（合臂发力）' } },
+  { key: 'biceps', name: '肱二头肌', en: 'Biceps brachii', view: 'front',
+    shapes: '<ellipse class="m-region" data-m="biceps" cx="56" cy="112" rx="8" ry="20"/><ellipse class="m-region" data-m="biceps" cx="144" cy="112" rx="8" ry="20"/>',
+    origin: '长头—盂上结节；短头—喙突', insertion: '桡骨粗隆、肱二头肌腱膜',
+    action: '屈肘、前臂旋后；协助肩前屈', exercises: '杠铃/哑铃弯举、锤式弯举、牧师凳弯举',
+    synergist: '肱肌、肱桡肌', antagonist: '肱三头肌',
+    cue: '固定肘部、旋后顶峰收缩、离心控制', act: { from: 10, to: 140, label: '肘关节屈曲（弯举）' } },
+  { key: 'rectus', name: '腹直肌', en: 'Rectus abdominis', view: 'front',
+    shapes: '<rect class="m-region" data-m="rectus" x="91" y="110" width="18" height="46" rx="5"/>',
+    origin: '耻骨嵴、耻骨联合', insertion: '第5–7肋软骨、剑突',
+    action: '脊柱屈曲、增加腹内压、稳定骨盆', exercises: '卷腹、悬垂举腿、健腹轮',
+    synergist: '腹内/外斜肌、腹横肌', antagonist: '竖脊肌',
+    cue: '想象“肋骨靠近骨盆”、呼气收缩，而非屈髋', act: { from: 0, to: 42, label: '脊柱屈曲（卷腹）' } },
+  { key: 'oblique', name: '腹外斜肌', en: 'External oblique', view: 'front',
+    shapes: '<ellipse class="m-region" data-m="oblique" cx="80" cy="128" rx="6" ry="16"/><ellipse class="m-region" data-m="oblique" cx="120" cy="128" rx="6" ry="16"/>',
+    origin: '第5–12肋外面', insertion: '髂嵴、腹白线、腹股沟韧带',
+    action: '躯干旋转(对侧)、侧屈、屈曲、增加腹压', exercises: '俄罗斯转体、负重侧屈、侧桥',
+    synergist: '腹内斜肌、腹直肌', antagonist: '对侧腹斜肌、竖脊肌',
+    cue: '旋转由躯干带动而非手臂，控制范围', act: { from: -30, to: 35, label: '躯干旋转 / 侧屈' } },
+  { key: 'quads', name: '股四头肌', en: 'Quadriceps femoris', view: 'front',
+    shapes: '<ellipse class="m-region" data-m="quads" cx="84" cy="210" rx="13" ry="34"/><ellipse class="m-region" data-m="quads" cx="116" cy="210" rx="13" ry="34"/>',
+    origin: '股直肌—髂前下棘；股内/外/中间肌—股骨', insertion: '经髌韧带止于胫骨粗隆',
+    action: '伸膝；股直肌还参与屈髋', exercises: '深蹲、腿举、箭步蹲、腿屈伸',
+    synergist: '臀大肌(蹲)、小腿三头肌', antagonist: '腘绳肌',
+    cue: '下蹲膝对准脚尖、全程控制；腿屈伸顶峰伸直', act: { from: 120, to: 5, label: '膝关节伸展（蹬伸）' } },
+  // —— 后侧 ——
+  { key: 'traps', name: '斜方肌', en: 'Trapezius', view: 'back',
+    shapes: '<path class="m-region" data-m="traps" d="M100 52 L124 66 L100 100 L76 66 Z"/>',
+    origin: '枕外隆凸、项韧带、C7–T12 棘突', insertion: '锁骨外1/3、肩峰、肩胛冈',
+    action: '上部—上提/上回旋；中部—后缩；下部—下降肩胛', exercises: '耸肩、面拉、划船、Y-T-W',
+    synergist: '菱形肌、肩胛提肌、前锯肌', antagonist: '胸小肌、背阔肌',
+    cue: '划船先“沉肩+夹背”启动；面拉肘高', act: { from: 20, to: -12, label: '肩胛骨上提 / 后缩' } },
+  { key: 'reardelt', name: '三角肌后束', en: 'Posterior deltoid', view: 'back',
+    shapes: '<ellipse class="m-region" data-m="reardelt" cx="63" cy="70" rx="13" ry="12"/><ellipse class="m-region" data-m="reardelt" cx="137" cy="70" rx="13" ry="12"/>',
+    origin: '肩胛冈', insertion: '肱骨三角肌粗隆',
+    action: '肩水平外展、后伸、外旋', exercises: '反向飞鸟、面拉、俯身侧平举',
+    synergist: '冈下肌、小圆肌、斜方肌中部', antagonist: '三角肌前束、胸大肌',
+    cue: '小重量、肘略屈，想象“把肘往后拉”', act: { from: -30, to: 60, label: '肩水平外展（后拉）' } },
+  { key: 'triceps', name: '肱三头肌', en: 'Triceps brachii', view: 'back',
+    shapes: '<ellipse class="m-region" data-m="triceps" cx="56" cy="112" rx="8" ry="20"/><ellipse class="m-region" data-m="triceps" cx="144" cy="112" rx="8" ry="20"/>',
+    origin: '长头—盂下结节；外/内侧头—肱骨后面', insertion: '尺骨鹰嘴',
+    action: '伸肘；长头协助肩后伸/内收', exercises: '卧推、双杠臂屈伸、绳索下压、过顶臂屈伸',
+    synergist: '肘肌', antagonist: '肱二头肌、肱肌',
+    cue: '固定肘部、顶峰充分伸直；过顶动作练长头', act: { from: 140, to: 10, label: '肘关节伸展（下压/推）' } },
+  { key: 'lats', name: '背阔肌', en: 'Latissimus dorsi', view: 'back',
+    shapes: '<path class="m-region" data-m="lats" d="M84 98 L98 102 L94 150 L78 126 Z"/><path class="m-region" data-m="lats" d="M116 98 L102 102 L106 150 L122 126 Z"/>',
+    origin: 'T7–L5棘突、骶骨、髂嵴、下肋(经胸腰筋膜)', insertion: '肱骨结节间沟',
+    action: '肩内收、后伸、内旋（引体时拉躯干向上）', exercises: '引体向上、高位下拉、划船、直臂下压',
+    synergist: '大圆肌、肱二头肌、三角肌后束', antagonist: '三角肌、斜方肌上部',
+    cue: '先沉肩、用“肘往口袋拉”带动；减少二头借力', act: { from: -60, to: 20, label: '肩内收/后伸（下拉/划船）' } },
+  { key: 'erector', name: '竖脊肌', en: 'Erector spinae', view: 'back',
+    shapes: '<rect class="m-region" data-m="erector" x="95" y="104" width="4" height="54" rx="2"/><rect class="m-region" data-m="erector" x="101" y="104" width="4" height="54" rx="2"/>',
+    origin: '骶骨、髂嵴、腰椎棘突等', insertion: '沿途肋骨、椎骨横突/棘突、至枕骨',
+    action: '脊柱伸展、侧屈；维持直立与脊柱稳定', exercises: '硬拉、罗马尼亚硬拉、山羊挺身、早安',
+    synergist: '臀大肌、腘绳肌、腰方肌', antagonist: '腹直肌',
+    cue: '保持脊柱中立、髋铰链发力；勿过度后伸', act: { from: 40, to: 0, label: '脊柱伸展（挺直）' } },
+  { key: 'glutes', name: '臀大肌', en: 'Gluteus maximus', view: 'back',
+    shapes: '<ellipse class="m-region" data-m="glutes" cx="88" cy="162" rx="14" ry="13"/><ellipse class="m-region" data-m="glutes" cx="112" cy="162" rx="14" ry="13"/>',
+    origin: '髂骨外面、骶/尾骨后面、骶结节韧带', insertion: '髂胫束、股骨臀肌粗隆',
+    action: '髋关节伸展、外旋；上部外展', exercises: '臀推、深蹲、硬拉、箭步蹲',
+    synergist: '腘绳肌、竖脊肌', antagonist: '髂腰肌',
+    cue: '顶峰“夹臀伸髋”，避免靠腰代偿', act: { from: 50, to: -12, label: '髋关节伸展（前推/起身）' } },
+  { key: 'hams', name: '腘绳肌', en: 'Hamstrings', view: 'back',
+    shapes: '<ellipse class="m-region" data-m="hams" cx="84" cy="210" rx="12" ry="32"/><ellipse class="m-region" data-m="hams" cx="116" cy="210" rx="12" ry="32"/>',
+    origin: '坐骨结节、股骨粗线(股二头肌短头)', insertion: '胫骨/腓骨上端',
+    action: '屈膝、伸髋', exercises: '罗马尼亚硬拉、腿弯举、早安、臀腿提拉',
+    synergist: '臀大肌、腓肠肌', antagonist: '股四头肌、髂腰肌',
+    cue: 'RDL 感受坐骨向后、微屈膝，范围内控制', act: { from: 10, to: 120, label: '屈膝 / 伸髋' } },
+  { key: 'calves', name: '腓肠肌', en: 'Gastrocnemius', view: 'back',
+    shapes: '<ellipse class="m-region" data-m="calves" cx="85" cy="278" rx="10" ry="22"/><ellipse class="m-region" data-m="calves" cx="115" cy="278" rx="10" ry="22"/>',
+    origin: '股骨内/外侧髁后面', insertion: '经跟腱止于跟骨',
+    action: '踝关节跖屈；协助屈膝', exercises: '站姿提踵、驴式提踵、跳跃',
+    synergist: '比目鱼肌、胫骨后肌', antagonist: '胫骨前肌',
+    cue: '全程大幅度、顶峰停顿、缓慢下放拉伸', act: { from: 20, to: -25, label: '踝关节跖屈（提踵）' } },
+];
+
+let anatomyView = 'front';
+let anatomySel = null;
+
+// 关节动作动画（SMIL，Safari 兼容）：固定近端骨 + 绕关节摆动的远端骨 + 脉动的“工作肌肉”
+function hingeSVG(act) {
+  if (!act) return '';
+  const px = 70, py = 84, bone = 42;
+  return `<svg class="hinge" viewBox="0 0 140 145" aria-label="${esc(act.label)}">
+    <line x1="${px}" y1="${py}" x2="${px}" y2="${py - 44}" class="bone-fixed"/>
+    <g>
+      <line x1="${px}" y1="${py}" x2="${px}" y2="${py + bone}" class="bone-move"/>
+      <animateTransform attributeName="transform" type="rotate"
+        values="${act.from} ${px} ${py}; ${act.to} ${px} ${py}; ${act.from} ${px} ${py}"
+        keyTimes="0;0.5;1" dur="2.4s" calcMode="spline"
+        keySplines="0.42 0 0.2 1; 0.42 0 0.2 1" repeatCount="indefinite"/>
+    </g>
+    <circle cx="${px}" cy="${py - 8}" r="7" class="muscle-pulse"/>
+    <circle cx="${px}" cy="${py}" r="4" class="joint"/>
+    <text x="70" y="140" class="hinge-label">${esc(act.label)}</text>
+  </svg>`;
+}
+
+function renderAnatomy() {
+  const box = document.getElementById('anatomy');
+  const muscles = ANATOMY.filter(m => m.view === anatomyView);
+  if (!anatomySel || !muscles.some(m => m.key === anatomySel)) anatomySel = muscles[0].key;
+  const sel = ANATOMY.find(m => m.key === anatomySel);
+
+  box.innerHTML = `
+    <div class="card">
+      <h2>动态肌肉解剖</h2>
+      <p class="hint">点击人体图或下方肌肉名 → 高亮该肌肉并演示其主要关节动作，辅助你理解训练中的发力底层逻辑。</p>
+      <div class="anat-toggle">
+        <button class="chip ${anatomyView === 'front' ? 'active' : ''}" data-anat-view="front">前侧</button>
+        <button class="chip ${anatomyView === 'back' ? 'active' : ''}" data-anat-view="back">后侧</button>
+      </div>
+      <div class="anat-main">
+        <svg class="body-svg" viewBox="0 0 200 330">${BODY_BG}${muscles.map(m => m.shapes).join('')}</svg>
+        <div class="anat-side">
+          <div class="anat-chips">${muscles.map(m =>
+            `<button class="chip ${m.key === anatomySel ? 'active' : ''}" data-anat-m="${m.key}">${esc(m.name)}</button>`).join('')}</div>
+          ${hingeSVG(sel.act)}
+        </div>
+      </div>
+      <div class="anat-detail">
+        <div class="title">${esc(sel.name)} <span class="anat-en">${esc(sel.en)}</span></div>
+        <table class="anat-table">
+          <tr><th>起点</th><td>${esc(sel.origin)}</td></tr>
+          <tr><th>止点</th><td>${esc(sel.insertion)}</td></tr>
+          <tr><th>主要功能</th><td>${esc(sel.action)}</td></tr>
+          <tr><th>主要训练</th><td>${esc(sel.exercises)}</td></tr>
+          <tr><th>协同肌</th><td>${esc(sel.synergist)}</td></tr>
+          <tr><th>拮抗肌</th><td>${esc(sel.antagonist)}</td></tr>
+          <tr><th>发力要点</th><td>${esc(sel.cue)}</td></tr>
+        </table>
+        <div class="source">${esc(ANATOMY_SRC)}</div>
+      </div>
+    </div>`;
+
+  box.querySelectorAll(`[data-m="${anatomySel}"]`).forEach(el => el.classList.add('active'));
+  box.querySelectorAll('[data-anat-view]').forEach(b =>
+    b.addEventListener('click', () => { anatomyView = b.dataset.anatView; anatomySel = null; renderAnatomy(); }));
+  box.querySelectorAll('[data-anat-m]').forEach(b =>
+    b.addEventListener('click', () => { anatomySel = b.dataset.anatM; renderAnatomy(); }));
+  box.querySelectorAll('.body-svg [data-m]').forEach(el =>
+    el.addEventListener('click', () => { anatomySel = el.dataset.m; renderAnatomy(); }));
 }
 
 /* ============================================================

@@ -410,6 +410,41 @@ textarea { resize: vertical; }
 }
 #food-search { margin-bottom: 4px; }
 
+/* 动态肌肉解剖 */
+.anat-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+.anat-main { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.body-svg {
+  width: 168px; flex: 0 0 auto;
+  background: var(--surface-2); border-radius: 12px; padding: 6px;
+}
+.body-bg { fill: #dfe3ea; }
+.m-region {
+  fill: #9db4d6; cursor: pointer; transition: fill .15s;
+  stroke: #fff; stroke-width: .6;
+}
+.m-region:hover { fill: #6f93c9; }
+.m-region.active { fill: var(--primary); animation: musclePulse 1.4s ease-in-out infinite; }
+@keyframes musclePulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+.anat-side { flex: 1; min-width: 150px; }
+.anat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.hinge { width: 140px; max-width: 100%; background: var(--surface-2); border-radius: 12px; }
+.hinge .bone-fixed { stroke: #c2cad6; stroke-width: 5; stroke-linecap: round; }
+.hinge .bone-move { stroke: var(--primary); stroke-width: 5; stroke-linecap: round; }
+.hinge .joint { fill: #6b7280; }
+.hinge .muscle-pulse { fill: rgba(215, 0, 21, .55); animation: musclePulse 1.4s ease-in-out infinite; }
+.hinge-label { fill: var(--muted); font-size: 9px; text-anchor: middle; }
+
+.anat-detail { margin-top: 14px; }
+.anat-detail .title { font-weight: 600; font-size: 1.05rem; margin-bottom: 8px; }
+.anat-en { color: var(--muted); font-size: .8rem; font-weight: 400; }
+.anat-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.anat-table th {
+  text-align: left; color: var(--muted); font-weight: 500;
+  width: 64px; padding: 5px 8px 5px 0; vertical-align: top; white-space: nowrap;
+}
+.anat-table td { padding: 5px 0; vertical-align: top; }
+
 /* Squad */
 .squad-code { letter-spacing: 2px; color: var(--primary); }
 .squad-members { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
