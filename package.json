@@ -1,0 +1,13 @@
+{
+  "name": "dexunlu",
+  "version": "1.0.0",
+  "description": "德训录 — 训练记录 / 运动日历 / 饮食营养 / 搭子社群",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "private": true
+}
