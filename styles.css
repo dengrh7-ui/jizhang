@@ -14,6 +14,18 @@
   --silver-3: #7a8290;           /* 暗调 */
   --silver-grad: linear-gradient(135deg, #f4f6fa 0%, #c9d0db 38%, #8b94a3 62%, #e6ebf2 100%);
   --silver-grad-hover: linear-gradient(135deg, #ffffff 0%, #dde3ec 38%, #a4adbb 62%, #f2f5fa 100%);
+  /* 水银流光：在银底上叠加一条移动的亮带 */
+  --silver-shimmer: linear-gradient(
+    115deg,
+    #8b94a3 0%,
+    #c9d0db 22%,
+    #f4f6fa 38%,
+    #ffffff 46%,
+    #f4f6fa 54%,
+    #c9d0db 70%,
+    #8b94a3 92%,
+    #c9d0db 100%
+  );
   --silver-glow: 0 0 18px rgba(214, 220, 230, .35), 0 0 4px rgba(255, 255, 255, .25) inset;
   --danger: #ff453a;
   --success: #30d158;
@@ -50,16 +62,22 @@ body {
   width: 44px; height: 4px;
   margin: 10px auto 0;
   border-radius: 2px;
-  background: var(--silver-grad);
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.8),
     0 0 14px rgba(214, 220, 230, .45);
+  animation: silverShimmer 5s linear infinite;
 }
 .app-header h1 {
-  background: var(--silver-grad);
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: silverShimmer 5s linear infinite;
 }
 .subtitle { color: var(--muted); font-size: .9rem; margin-top: 8px; letter-spacing: .5px; }
 
@@ -94,13 +112,16 @@ body {
 }
 .tab-btn:active { transform: scale(.96); }
 .tab-btn.active {
-  background: var(--silver-grad);
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
   color: var(--on-primary);
   font-weight: 600;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,.7),
     inset 0 -1px 0 rgba(0,0,0,.15),
     0 0 14px rgba(214,220,230,.3);
+  animation: silverShimmer 3.6s linear infinite;
 }
 
 main { max-width: 720px; margin: 0 auto; padding: 0 16px; }
@@ -154,7 +175,9 @@ textarea { resize: vertical; }
 .btn:hover { background: var(--surface-2); }
 .btn:active { transform: scale(.97); }
 .btn.primary {
-  background: var(--silver-grad);
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
   border-color: rgba(255,255,255,.35);
   color: var(--on-primary);
   font-weight: 700;
@@ -163,11 +186,15 @@ textarea { resize: vertical; }
     inset 0 -1px 0 rgba(0,0,0,.15),
     0 2px 8px rgba(0,0,0,.4);
   text-shadow: 0 1px 0 rgba(255,255,255,.35);
+  animation: silverShimmer 3.2s linear infinite;
 }
-.btn.primary:hover { background: var(--silver-grad-hover); box-shadow:
+.btn.primary:hover {
+  animation-duration: 1.6s;
+  box-shadow:
     inset 0 1px 0 rgba(255,255,255,.85),
     inset 0 -1px 0 rgba(0,0,0,.15),
-    0 0 20px rgba(214,220,230,.45); }
+    0 0 22px rgba(214,220,230,.5);
+}
 .btn.small { padding: 6px 12px; font-size: .82rem; border-radius: 8px; }
 .btn.icon { padding: 4px 12px; font-size: 1.3rem; line-height: 1; border: none; background: transparent; color: var(--primary); }
 .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
@@ -253,11 +280,14 @@ textarea { resize: vertical; }
 }
 .chip:active { transform: scale(.96); }
 .chip.active {
-  background: var(--silver-grad);
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
   color: var(--on-primary);
   border-color: rgba(255,255,255,.4);
   font-weight: 600;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,0,0,.15);
+  animation: silverShimmer 3.6s linear infinite;
 }
 
 .tip-item .title { font-weight: 600; }
@@ -298,11 +328,14 @@ textarea { resize: vertical; }
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.5px;
-  background: var(--silver-grad);
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 1px 0 rgba(0,0,0,.4));
+  animation: silverShimmer 4s linear infinite;
 }
 .stat-box .lbl { font-size: .78rem; color: var(--muted); margin-top: 4px; }
 
@@ -491,6 +524,15 @@ textarea { resize: vertical; }
 .m-region:hover { fill: #7d8aa0; }
 .m-region.active { fill: #d6dce6; filter: drop-shadow(0 0 4px rgba(214,220,230,.6)); animation: musclePulse 1.4s ease-in-out infinite; }
 @keyframes musclePulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+
+/* 液态银流光：亮带从左到右扫过 */
+@keyframes silverShimmer {
+  0%   { background-position: 200% 50%; }
+  100% { background-position: -100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-surface, .shimmer-text { animation: none !important; }
+}
 
 .anat-side { flex: 1; min-width: 150px; }
 .anat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
