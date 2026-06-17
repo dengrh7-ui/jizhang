@@ -1,16 +1,18 @@
 :root {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --surface-2: #f0f0f2;
-  --border: #e3e3e6;
-  --text: #1d1d1f;
-  --muted: #86868b;
-  --primary: #0071e3;
-  --primary-hover: #0077ed;
-  --danger: #d70015;
-  --success: #1d8c3e;
+  /* 深色 + 电光黄绿(Nike Volt) 运动语言 */
+  --bg: #0a0c10;
+  --surface: #14181f;
+  --surface-2: #1e242e;
+  --border: #2a313c;
+  --text: #f2f4f7;
+  --muted: #8b93a1;
+  --primary: #cfff00;          /* Volt 爆点色 */
+  --primary-hover: #d8ff33;
+  --on-primary: #0a0c10;       /* Volt 上的文字用深色 */
+  --danger: #ff453a;
+  --success: #30d158;
   --radius: 16px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 6px 24px rgba(0, 0, 0, .04);
+  --shadow: 0 1px 3px rgba(0, 0, 0, .45), 0 10px 30px rgba(0, 0, 0, .35);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,9 +34,18 @@ body {
   padding: 40px 16px 20px;
 }
 .app-header h1 {
-  font-size: 2rem;
-  font-weight: 600;
-  letter-spacing: 2px;
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -.5px;
+}
+.app-header h1::after {
+  content: "";
+  display: block;
+  width: 36px; height: 4px;
+  margin: 10px auto 0;
+  border-radius: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 12px rgba(207, 255, 0, .6);
 }
 .subtitle { color: var(--muted); font-size: .9rem; margin-top: 8px; letter-spacing: .5px; }
 
@@ -67,7 +78,8 @@ body {
   flex: 0 0 auto;
   white-space: nowrap;
 }
-.tab-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.tab-btn:active { transform: scale(.96); }
+.tab-btn.active { background: var(--primary); color: var(--on-primary); font-weight: 600; box-shadow: 0 0 14px rgba(207,255,0,.3); }
 
 main { max-width: 720px; margin: 0 auto; padding: 0 16px; }
 .tab-panel { display: none; }
@@ -102,7 +114,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, .12);
+  box-shadow: 0 0 0 3px rgba(207, 255, 0, .2);
 }
 textarea { resize: vertical; }
 
@@ -118,8 +130,9 @@ textarea { resize: vertical; }
   transition: .15s;
 }
 .btn:hover { background: var(--surface-2); }
-.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
-.btn.primary:hover { background: var(--primary-hover); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 700; }
+.btn.primary:hover { background: var(--primary-hover); box-shadow: 0 0 18px rgba(207,255,0,.35); }
 .btn.small { padding: 6px 12px; font-size: .82rem; border-radius: 8px; }
 .btn.icon { padding: 4px 12px; font-size: 1.3rem; line-height: 1; border: none; background: transparent; color: var(--primary); }
 .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
@@ -203,7 +216,8 @@ textarea { resize: vertical; }
   cursor: pointer;
   transition: .15s;
 }
-.chip.active { background: var(--text); color: #fff; border-color: var(--text); }
+.chip:active { transform: scale(.96); }
+.chip.active { background: var(--primary); color: var(--on-primary); border-color: var(--primary); font-weight: 600; }
 
 .tip-item .title { font-weight: 600; }
 .badge {
@@ -213,9 +227,9 @@ textarea { resize: vertical; }
   border-radius: 999px;
   margin-bottom: 6px;
 }
-.badge.组数建议 { background: rgba(29, 140, 62, .12); color: var(--success); }
-.badge.训练要点 { background: rgba(0, 113, 227, .12); color: var(--primary); }
-.badge.关键技巧 { background: rgba(199, 109, 0, .12); color: #b35900; }
+.badge.组数建议 { background: rgba(48, 209, 88, .16); color: var(--success); }
+.badge.训练要点 { background: rgba(207, 255, 0, .15); color: var(--primary); }
+.badge.关键技巧 { background: rgba(255, 159, 10, .16); color: #ff9f0a; }
 .tip-item .content { font-size: .9rem; color: var(--text); margin-top: 4px; white-space: pre-wrap; }
 
 /* Progressive overload hint */
@@ -238,7 +252,7 @@ textarea { resize: vertical; }
   padding: 16px;
   text-align: center;
 }
-.stat-box .num { font-size: 1.7rem; font-weight: 600; color: var(--text); }
+.stat-box .num { font-size: 2rem; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
 .stat-box .lbl { font-size: .78rem; color: var(--muted); margin-top: 4px; }
 
 .bar-chart { display: flex; flex-direction: column; gap: 9px; }
@@ -267,7 +281,7 @@ textarea { resize: vertical; }
   padding: 2px 9px;
   margin-left: 8px;
   border-radius: 999px;
-  background: rgba(0, 113, 227, .12);
+  background: rgba(207, 255, 0, .15);
   color: var(--primary);
   vertical-align: middle;
 }
@@ -291,7 +305,7 @@ textarea { resize: vertical; }
 .session-guide {
   font-size: .8rem;
   color: var(--primary);
-  background: rgba(0, 113, 227, .06);
+  background: rgba(207, 255, 0, .08);
   border-radius: 8px;
   padding: 8px 12px;
   margin-bottom: 12px;
@@ -417,12 +431,12 @@ textarea { resize: vertical; }
   width: 168px; flex: 0 0 auto;
   background: var(--surface-2); border-radius: 12px; padding: 6px;
 }
-.body-bg { fill: #dfe3ea; }
+.body-bg { fill: #2a313c; }
 .m-region {
-  fill: #9db4d6; cursor: pointer; transition: fill .15s;
-  stroke: #fff; stroke-width: .6;
+  fill: #586273; cursor: pointer; transition: fill .15s;
+  stroke: #14181f; stroke-width: .6;
 }
-.m-region:hover { fill: #6f93c9; }
+.m-region:hover { fill: #7d8aa0; }
 .m-region.active { fill: var(--primary); animation: musclePulse 1.4s ease-in-out infinite; }
 @keyframes musclePulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 
@@ -434,7 +448,7 @@ textarea { resize: vertical; }
 .scene3d {
   width: 100%; height: 280px;
   perspective: 560px; perspective-origin: 50% 42%;
-  background: radial-gradient(circle at 50% 36%, #f3f0ee, #e7e0db);
+  background: radial-gradient(circle at 50% 34%, #1b212c, #0c0f14);
   border-radius: 12px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
 }
@@ -484,9 +498,9 @@ textarea { resize: vertical; }
 /* 名称浮层 */
 .fig-name {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;
-  background: rgba(255,255,255,.82); color: var(--text);
+  background: rgba(10,12,16,.78); color: var(--primary); backdrop-filter: blur(6px);
   font-size: .82rem; font-weight: 600; padding: 3px 12px; border-radius: 999px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.12); white-space: nowrap;
+  box-shadow: 0 1px 6px rgba(0,0,0,.4); white-space: nowrap;
 }
 .fig-name span { color: var(--muted); font-weight: 400; font-size: .72rem; }
 
