@@ -702,6 +702,14 @@ let anatomyPlane = 'fro';   // fro=定格(随所选肌肉转到正/背面) | orb
 let anatomyMode = localStorage.getItem('dxl-anatmode') || 'svg';   // svg=示意图 | model=3D模型
 let anat3dUrl = localStorage.getItem('dxl-anat3d') || '';
 
+// 内置免费 3D 解剖模型（Sketchfab，CC-BY，作者 Ruslan Gadzhiev）
+const ANAT3D_PRESETS = [
+  { key: 'male', label: '男性肌肉系统', id: '991eb96938be4d0d8fadee241a1063d3', credit: 'Male Body Muscular System — Ruslan Gadzhiev (CC-BY) · Sketchfab' },
+  { key: 'female', label: '女性肌肉系统', id: '9a596b6c24b344bfbe6bb5246290df0e', credit: 'Female Body Muscular System — Ruslan Gadzhiev (CC-BY) · Sketchfab' },
+];
+const sketchEmbed = id => `https://sketchfab.com/models/${id}/embed?autospin=0.3&ui_infos=0&ui_watermark=0&ui_hint=0`;
+const DEFAULT_3D = sketchEmbed(ANAT3D_PRESETS[0].id);
+
 // 把用户粘贴的链接/iframe 代码规整为可嵌入的 3D 模型 URL
 function to3DEmbed(raw) {
   raw = (raw || '').trim();
@@ -840,21 +848,25 @@ function renderAnatomy() {
   // 解剖可视化：示意图(自绘) 或 3D 模型(嵌入)
   let visual;
   if (anatomyMode === 'model') {
-    visual = anat3dUrl
-      ? `<div class="model3d"><iframe src="${esc(anat3dUrl)}" title="3D 解剖模型" frameborder="0"
-            allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen
-            mozallowfullscreen="true" webkitallowfullscreen="true"></iframe></div>
-         <div class="model-actions"><button class="btn small" id="anat-changemodel">更换模型</button>
-           <span class="hint" style="margin:0">拖动可旋转/缩放查看</span></div>`
-      : `<div class="card model-setup">
-           <p class="hint">嵌入真实 3D 解剖模型（来自 Sketchfab / BioDigital 等，需联网）。请粘贴模型的分享/嵌入链接：</p>
-           <input type="text" id="anat-url-input" placeholder="粘贴 Sketchfab 模型链接或 iframe 代码">
-           <button class="btn primary" id="anat-url-save" style="margin-top:8px">加载模型</button>
-           <div class="hint" style="margin-top:10px">
-             获取方法：在 <a href="https://sketchfab.com/search?q=muscular+anatomy&type=models&licenses=322a749bcfa841b29dff1e8a1bb74b0b" target="_blank" rel="noopener">Sketchfab 免费解剖模型</a>
-             选一个 → 点 <b>Share / Embed</b> → 复制链接粘贴到上面。也支持 BioDigital 嵌入地址。
-           </div>
-         </div>`;
+    const eff = anat3dUrl || DEFAULT_3D;
+    const curPreset = ANAT3D_PRESETS.find(p => eff === sketchEmbed(p.id));
+    const credit = curPreset ? curPreset.credit : '用户自定义模型 · 请遵守其授权';
+    visual = `
+      <div class="anat-toggle">
+        ${ANAT3D_PRESETS.map(p =>
+          `<button class="chip ${curPreset && curPreset.key === p.key ? 'active' : ''}" data-anat-preset="${p.id}">${p.label}</button>`).join('')}
+        <button class="chip ${!curPreset ? 'active' : ''}" id="anat-custom-toggle">自定义</button>
+      </div>
+      <div class="model3d"><iframe src="${esc(eff)}" title="3D 解剖模型" frameborder="0"
+        allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen
+        mozallowfullscreen="true" webkitallowfullscreen="true"></iframe></div>
+      <div class="model-actions"><span class="hint" style="margin:0">拖动旋转 / 双指缩放 · ${esc(credit)}</span></div>
+      <div class="model-setup" id="anat-custom-box" style="display:none;margin-top:10px">
+        <p class="hint">粘贴其它模型的分享/嵌入链接（Sketchfab 或 BioDigital）：</p>
+        <input type="text" id="anat-url-input" placeholder="粘贴模型链接或 iframe 代码">
+        <button class="btn primary" id="anat-url-save" style="margin-top:8px">加载此模型</button>
+        <div class="hint" style="margin-top:8px">在 <a href="https://sketchfab.com/tags/anatomy-muscle" target="_blank" rel="noopener">Sketchfab 肌肉解剖模型</a> 选一个 → Share/Embed → 复制链接。</div>
+      </div>`;
   } else {
     visual = `
       <div class="anat-main">
@@ -915,16 +927,21 @@ function renderAnatomy() {
     box.querySelectorAll('[data-anat-plane]').forEach(b =>
       b.addEventListener('click', () => { anatomyPlane = b.dataset.anatPlane; renderAnatomy(); }));
   } else {
-    const saveUrl = () => {
+    box.querySelectorAll('[data-anat-preset]').forEach(b =>
+      b.addEventListener('click', () => {
+        anat3dUrl = sketchEmbed(b.dataset.anatPreset);
+        localStorage.setItem('dxl-anat3d', anat3dUrl); renderAnatomy();
+      }));
+    const customToggle = document.getElementById('anat-custom-toggle');
+    if (customToggle) customToggle.addEventListener('click', () => {
+      const cb = document.getElementById('anat-custom-box');
+      cb.style.display = cb.style.display === 'none' ? 'block' : 'none';
+    });
+    const saveBtn = document.getElementById('anat-url-save');
+    if (saveBtn) saveBtn.addEventListener('click', () => {
       const url = to3DEmbed(document.getElementById('anat-url-input').value);
       if (!url) { alert('链接无法识别，请粘贴 Sketchfab 模型链接或 iframe 代码'); return; }
       anat3dUrl = url; localStorage.setItem('dxl-anat3d', url); renderAnatomy();
-    };
-    const saveBtn = document.getElementById('anat-url-save');
-    if (saveBtn) saveBtn.addEventListener('click', saveUrl);
-    const changeBtn = document.getElementById('anat-changemodel');
-    if (changeBtn) changeBtn.addEventListener('click', () => {
-      anat3dUrl = ''; localStorage.removeItem('dxl-anat3d'); renderAnatomy();
     });
   }
 }
