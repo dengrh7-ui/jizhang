@@ -474,6 +474,13 @@ textarea { resize: vertical; }
 }
 .msc.hot .fiber { stroke: rgba(255,228,222,.75); stroke-width: .4; }
 
+/* 嵌入式 3D 解剖模型 */
+.model3d { position: relative; width: 100%; height: 360px; border-radius: 12px; overflow: hidden; background: #11151c; }
+.model3d iframe { width: 100%; height: 100%; border: 0; display: block; }
+.model-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.model-setup input { margin-bottom: 0; }
+.model-setup a { color: var(--primary); }
+
 /* 名称浮层 */
 .fig-name {
   position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2;

@@ -699,6 +699,20 @@ const FIG_SEL = {
 };
 
 let anatomyPlane = 'fro';   // fro=定格(随所选肌肉转到正/背面) | orbit=旋转
+let anatomyMode = localStorage.getItem('dxl-anatmode') || 'svg';   // svg=示意图 | model=3D模型
+let anat3dUrl = localStorage.getItem('dxl-anat3d') || '';
+
+// 把用户粘贴的链接/iframe 代码规整为可嵌入的 3D 模型 URL
+function to3DEmbed(raw) {
+  raw = (raw || '').trim();
+  const inIframe = raw.match(/src="([^"]+)"/i);
+  if (inIframe) raw = inIframe[1];
+  let m = raw.match(/sketchfab\.com\/3d-models\/[^/?#]*-([0-9a-f]{32})/i)
+       || raw.match(/sketchfab\.com\/models\/([0-9a-f]{32})/i);
+  if (m) return `https://sketchfab.com/models/${m[1]}/embed?autospin=0.3&ui_infos=0&ui_watermark=0`;
+  if (/^https?:\/\//i.test(raw)) return raw;   // BioDigital 等已是嵌入地址
+  return '';
+}
 
 // 各身体段：正面 fr / 背面 bk 两套分块肌群（半透明 SVG，含肌纤维走向线与名称 title）
 // class mm-<key> 用于按所选肌肉高亮
@@ -823,14 +837,26 @@ function renderAnatomy() {
   const an = ANATOMY_ANIM[sel.key] || {};
   const planes = [['fro', '定格'], ['orbit', '旋转']];
 
-  box.innerHTML = `
-    <div class="card">
-      <h2>动态肌肉解剖 · 3D</h2>
-      <p class="hint">点击人体图或肌肉名 → 选中肌肉。半透明 3D 人体演示该肌肉的主要训练动作，并自动转到正/背面观；可切“旋转”环绕查看。</p>
-      <div class="anat-toggle">
-        <button class="chip ${anatomyView === 'front' ? 'active' : ''}" data-anat-view="front">前侧</button>
-        <button class="chip ${anatomyView === 'back' ? 'active' : ''}" data-anat-view="back">后侧</button>
-      </div>
+  // 解剖可视化：示意图(自绘) 或 3D 模型(嵌入)
+  let visual;
+  if (anatomyMode === 'model') {
+    visual = anat3dUrl
+      ? `<div class="model3d"><iframe src="${esc(anat3dUrl)}" title="3D 解剖模型" frameborder="0"
+            allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen
+            mozallowfullscreen="true" webkitallowfullscreen="true"></iframe></div>
+         <div class="model-actions"><button class="btn small" id="anat-changemodel">更换模型</button>
+           <span class="hint" style="margin:0">拖动可旋转/缩放查看</span></div>`
+      : `<div class="card model-setup">
+           <p class="hint">嵌入真实 3D 解剖模型（来自 Sketchfab / BioDigital 等，需联网）。请粘贴模型的分享/嵌入链接：</p>
+           <input type="text" id="anat-url-input" placeholder="粘贴 Sketchfab 模型链接或 iframe 代码">
+           <button class="btn primary" id="anat-url-save" style="margin-top:8px">加载模型</button>
+           <div class="hint" style="margin-top:10px">
+             获取方法：在 <a href="https://sketchfab.com/search?q=muscular+anatomy&type=models&licenses=322a749bcfa841b29dff1e8a1bb74b0b" target="_blank" rel="noopener">Sketchfab 免费解剖模型</a>
+             选一个 → 点 <b>Share / Embed</b> → 复制链接粘贴到上面。也支持 BioDigital 嵌入地址。
+           </div>
+         </div>`;
+  } else {
+    visual = `
       <div class="anat-main">
         <svg class="body-svg" viewBox="0 0 200 330">${BODY_BG}${muscles.map(m => m.shapes).join('')}</svg>
         <div class="anat-side">
@@ -840,7 +866,21 @@ function renderAnatomy() {
             `<button class="chip ${anatomyPlane === v ? 'active' : ''}" data-anat-plane="${v}">${t}</button>`).join('')}</div>
           ${figure3D(sel)}
         </div>
+      </div>`;
+  }
+
+  box.innerHTML = `
+    <div class="card">
+      <h2>肌肉解剖</h2>
+      <div class="anat-toggle">
+        <button class="chip ${anatomyMode === 'svg' ? 'active' : ''}" data-anat-mode="svg">解剖示意图</button>
+        <button class="chip ${anatomyMode === 'model' ? 'active' : ''}" data-anat-mode="model">3D 模型</button>
       </div>
+      ${anatomyMode === 'svg' ? `<div class="anat-toggle">
+        <button class="chip ${anatomyView === 'front' ? 'active' : ''}" data-anat-view="front">前侧</button>
+        <button class="chip ${anatomyView === 'back' ? 'active' : ''}" data-anat-view="back">后侧</button>
+      </div>` : ''}
+      ${visual}
       <div class="anat-detail">
         <div class="title">${esc(sel.name)} <span class="anat-en">${esc(sel.en)}</span></div>
         <table class="anat-table">
@@ -859,16 +899,34 @@ function renderAnatomy() {
       </div>
     </div>`;
 
-  box.querySelectorAll(`[data-m="${anatomySel}"]`).forEach(el => el.classList.add('active'));
-  box.querySelectorAll(`.mm-${anatomySel}`).forEach(el => el.classList.add('hot'));
-  box.querySelectorAll('[data-anat-view]').forEach(b =>
-    b.addEventListener('click', () => { anatomyView = b.dataset.anatView; anatomySel = null; renderAnatomy(); }));
-  box.querySelectorAll('[data-anat-m]').forEach(b =>
-    b.addEventListener('click', () => { anatomySel = b.dataset.anatM; renderAnatomy(); }));
-  box.querySelectorAll('.body-svg [data-m]').forEach(el =>
-    el.addEventListener('click', () => { anatomySel = el.dataset.m; renderAnatomy(); }));
-  box.querySelectorAll('[data-anat-plane]').forEach(b =>
-    b.addEventListener('click', () => { anatomyPlane = b.dataset.anatPlane; renderAnatomy(); }));
+  box.querySelectorAll('[data-anat-mode]').forEach(b =>
+    b.addEventListener('click', () => {
+      anatomyMode = b.dataset.anatMode; localStorage.setItem('dxl-anatmode', anatomyMode); renderAnatomy();
+    }));
+  if (anatomyMode === 'svg') {
+    box.querySelectorAll(`[data-m="${anatomySel}"]`).forEach(el => el.classList.add('active'));
+    box.querySelectorAll(`.mm-${anatomySel}`).forEach(el => el.classList.add('hot'));
+    box.querySelectorAll('[data-anat-view]').forEach(b =>
+      b.addEventListener('click', () => { anatomyView = b.dataset.anatView; anatomySel = null; renderAnatomy(); }));
+    box.querySelectorAll('[data-anat-m]').forEach(b =>
+      b.addEventListener('click', () => { anatomySel = b.dataset.anatM; renderAnatomy(); }));
+    box.querySelectorAll('.body-svg [data-m]').forEach(el =>
+      el.addEventListener('click', () => { anatomySel = el.dataset.m; renderAnatomy(); }));
+    box.querySelectorAll('[data-anat-plane]').forEach(b =>
+      b.addEventListener('click', () => { anatomyPlane = b.dataset.anatPlane; renderAnatomy(); }));
+  } else {
+    const saveUrl = () => {
+      const url = to3DEmbed(document.getElementById('anat-url-input').value);
+      if (!url) { alert('链接无法识别，请粘贴 Sketchfab 模型链接或 iframe 代码'); return; }
+      anat3dUrl = url; localStorage.setItem('dxl-anat3d', url); renderAnatomy();
+    };
+    const saveBtn = document.getElementById('anat-url-save');
+    if (saveBtn) saveBtn.addEventListener('click', saveUrl);
+    const changeBtn = document.getElementById('anat-changemodel');
+    if (changeBtn) changeBtn.addEventListener('click', () => {
+      anat3dUrl = ''; localStorage.removeItem('dxl-anat3d'); renderAnatomy();
+    });
+  }
 }
 
 /* ============================================================
