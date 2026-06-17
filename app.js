@@ -699,7 +699,7 @@ const FIG_SEL = {
 };
 
 let anatomyPlane = 'fro';   // fro=定格(随所选肌肉转到正/背面) | orbit=旋转
-let anatomyMode = localStorage.getItem('dxl-anatmode') || 'svg';   // svg=示意图 | model=3D模型
+let anatomyMode = localStorage.getItem('dxl-anatmode') || 'model';   // 默认 3D 模型；svg=示意图
 let anat3dUrl = localStorage.getItem('dxl-anat3d') || '';
 
 // 内置免费 3D 解剖模型（Sketchfab，CC-BY，作者 Ruslan Gadzhiev）
