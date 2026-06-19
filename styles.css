@@ -229,6 +229,19 @@ textarea { resize: vertical; }
 .session-head .title { font-weight: 600; }
 .session-body { padding: 16px 18px; }
 
+/* 折叠：标题可点切换，折叠时隐藏内容与下边框 */
+.session-head { cursor: pointer; }
+.session.collapsed .session-head { border-bottom: none; }
+.session.collapsed .session-body { display: none; }
+.session-head .caret {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: .82em;
+  transition: transform .18s ease;
+}
+.session:not(.collapsed) .session-head .caret { transform: rotate(90deg); }
+
 .exercise {
   border: 1px solid var(--border);
   border-radius: 12px;

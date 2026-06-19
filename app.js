@@ -272,21 +272,14 @@ document.getElementById('history-filter').addEventListener('change', e => {
   renderSessions();
 });
 
-function renderSessions() {
-  fillHistoryFilter();
-  const list = document.getElementById('sessions-list');
-  const sessions = data.sessions.filter(s => historyFilter === '全部' || s.programName === historyFilter);
-  if (!sessions.length) {
-    list.innerHTML = '<div class="empty">还没有训练记录，创建一次训练开始记录吧。</div>';
-    return;
-  }
-  list.innerHTML = sessions.map(s => {
-    const g = GOAL_GUIDE[s.goal];
-    return `
-    <div class="session" data-session="${s.id}">
-      <div class="session-head">
+// 单条训练卡片的 HTML；collapsed=true 时默认折叠（用于历史记录）
+function sessionHTML(s, collapsed) {
+  const g = GOAL_GUIDE[s.goal];
+  return `
+    <div class="session${collapsed ? ' collapsed' : ''}" data-session="${s.id}">
+      <div class="session-head" data-toggle-session="${s.id}">
         <div>
-          <div class="title">${esc(s.programName)}${s.goal ? `<span class="goal-tag">${esc(s.goal)}</span>` : ''}</div>
+          <div class="title"><span class="caret">▸</span>${esc(s.programName)}${s.goal ? `<span class="goal-tag">${esc(s.goal)}</span>` : ''}</div>
           <div class="meta">${esc(s.date)} · ${s.exercises.length} 个动作 · 容量 ${Math.round(sessionVolume(s)).toLocaleString()} kg</div>
         </div>
         <button class="btn small danger" data-del-session="${s.id}">删除</button>
@@ -300,7 +293,23 @@ function renderSessions() {
         </div>
       </div>
     </div>`;
-  }).join('');
+}
+
+function renderSessions() {
+  fillHistoryFilter();
+  const today = todayStr();
+  // 今天的训练始终展开置顶；其余进“训练历史”（默认折叠），数据全部保留
+  const todaySessions = data.sessions.filter(s => s.date === today);
+  const historySessions = data.sessions.filter(s =>
+    s.date !== today && (historyFilter === '全部' || s.programName === historyFilter));
+
+  document.getElementById('today-list').innerHTML = todaySessions.length
+    ? todaySessions.map(s => sessionHTML(s, false)).join('')
+    : '<div class="empty">今天还没有训练，在上方选择项目后点「创建训练」开始记录。</div>';
+
+  document.getElementById('sessions-list').innerHTML = historySessions.length
+    ? historySessions.map(s => sessionHTML(s, true)).join('')
+    : '<div class="empty">还没有更早的训练记录。</div>';
 
   bindSessionEvents();
 }
@@ -346,7 +355,23 @@ function renderExercise(sessionId, ex) {
 }
 
 function bindSessionEvents() {
-  const list = document.getElementById('sessions-list');
+  // 今天与历史分属两个容器，事件需跨两者绑定
+  const roots = ['today-list', 'sessions-list']
+    .map(id => document.getElementById(id)).filter(Boolean);
+  const list = {
+    querySelectorAll: sel => roots.flatMap(r => [...r.querySelectorAll(sel)]),
+    querySelector: sel => {
+      for (const r of roots) { const el = r.querySelector(sel); if (el) return el; }
+      return null;
+    },
+  };
+
+  // 折叠/展开历史训练（点击标题区域，按钮除外）
+  list.querySelectorAll('[data-toggle-session]').forEach(head =>
+    head.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      head.closest('.session').classList.toggle('collapsed');
+    }));
 
   list.querySelectorAll('[data-del-session]').forEach(b =>
     b.addEventListener('click', () => {
