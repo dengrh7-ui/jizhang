@@ -329,6 +329,26 @@ textarea { resize: vertical; }
 .overload-hint b { color: var(--success); }
 
 /* Stats */
+/* Hero 仪表盘 */
+.hero-card {
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(214,220,230,.06), transparent 60%),
+    var(--surface);
+}
+.hero-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.hero-greeting { font-size: 1.15rem; font-weight: 700; letter-spacing: -.3px; }
+.hero-streak {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.hero-streak.on { border-color: rgba(255,159,10,.4); box-shadow: 0 0 16px rgba(255,159,10,.18); }
+.hero-streak .flame { font-size: 1.05rem; }
+.hero-streak .streak-num { font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.hero-streak.on .streak-num { color: #ff9f0a; }
+.hero-streak .streak-lbl { font-size: .76rem; color: var(--muted); }
+.hero-cta { width: 100%; margin-top: 14px; padding: 15px; font-size: 1.05rem; border-radius: 14px; }
+
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
 .stat-box {
   background: var(--surface-2);

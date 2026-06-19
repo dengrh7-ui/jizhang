@@ -237,7 +237,7 @@ document.getElementById('add-program').addEventListener('click', () => {
 /* ============================================================
    训练记录 (Sessions)
    ============================================================ */
-document.getElementById('start-session').addEventListener('click', () => {
+function createSession() {
   const programId = document.getElementById('session-program').value;
   const date = document.getElementById('session-date').value || todayStr();
   if (!programId) { alert('请先在“训练项目”中创建项目'); return; }
@@ -255,9 +255,61 @@ document.getElementById('start-session').addEventListener('click', () => {
   });
   save();
   renderSessions();
-});
+}
+document.getElementById('start-session').addEventListener('click', createSession);
 
 let historyFilter = '全部';
+
+/* ---------- Hero 仪表盘：连续训练 streak + 本周战报 ---------- */
+// 连续训练天数：从今天（或昨天，留一天缓冲）往回数，连续有训练记录的天数
+function computeStreak() {
+  const days = new Set(data.sessions.map(s => s.date));
+  if (!days.size) return 0;
+  const oneDay = 86400000;
+  const t = new Date(todayStr() + 'T00:00:00').getTime();
+  const has = ts => days.has(new Date(ts).toISOString().slice(0, 10));
+  // 今天没练也不立刻断签：若今天未练但昨天练了，从昨天起算
+  let cursor;
+  if (has(t)) cursor = t;
+  else if (has(t - oneDay)) cursor = t - oneDay;
+  else return 0;
+  let streak = 0;
+  while (has(cursor)) { streak++; cursor -= oneDay; }
+  return streak;
+}
+
+function renderHero() {
+  const box = document.getElementById('hero-dash');
+  if (!box) return;
+  const thisWeek = weekKey(todayStr());
+  const weekSessions = data.sessions.filter(s => weekKey(s.date) === thisWeek);
+  const weekCount = weekSessions.length;
+  const weekVolume = weekSessions.reduce((t, s) => t + sessionVolume(s), 0);
+  const streak = computeStreak();
+  const trainedToday = data.sessions.some(s => s.date === todayStr());
+
+  const hour = new Date().getHours();
+  const greet = hour < 6 ? '夜深了，注意恢复' : hour < 12 ? '早上好，开练吧'
+    : hour < 18 ? '下午好，动起来' : '晚上好，今天练了吗';
+
+  box.innerHTML = `
+    <div class="hero-top">
+      <div class="hero-greeting">${greet}</div>
+      <div class="hero-streak${streak > 0 ? ' on' : ''}">
+        <span class="flame">${streak > 0 ? '🔥' : '💤'}</span>
+        <span class="streak-num">${streak}</span>
+        <span class="streak-lbl">${streak > 0 ? '天连续' : '开始连续'}</span>
+      </div>
+    </div>
+    <div class="stat-grid hero-stats">
+      <div class="stat-box"><div class="num">${weekCount}</div><div class="lbl">本周训练</div></div>
+      <div class="stat-box"><div class="num">${Math.round(weekVolume).toLocaleString()}</div><div class="lbl">本周容量 (kg)</div></div>
+      <div class="stat-box"><div class="num">${data.sessions.length}</div><div class="lbl">累计训练</div></div>
+    </div>
+    <button class="btn primary hero-cta" id="hero-start">${trainedToday ? '＋ 再记一次训练' : '＋ 开始今天的训练'}</button>`;
+
+  document.getElementById('hero-start').addEventListener('click', createSession);
+}
 
 // 填充训练历史的分类筛选下拉
 function fillHistoryFilter() {
@@ -296,6 +348,7 @@ function sessionHTML(s, collapsed) {
 }
 
 function renderSessions() {
+  renderHero();
   fillHistoryFilter();
   const today = todayStr();
   // 重渲染前记下当前各卡片的折叠状态，渲染后恢复（避免改一组就把展开的历史折叠回去）
