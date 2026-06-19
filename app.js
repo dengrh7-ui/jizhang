@@ -284,7 +284,6 @@ function renderHero() {
   const thisWeek = weekKey(todayStr());
   const weekSessions = data.sessions.filter(s => weekKey(s.date) === thisWeek);
   const weekCount = weekSessions.length;
-  const weekVolume = weekSessions.reduce((t, s) => t + sessionVolume(s), 0);
   const streak = computeStreak();
   const trainedToday = data.sessions.some(s => s.date === todayStr());
 
@@ -303,7 +302,6 @@ function renderHero() {
     </div>
     <div class="stat-grid hero-stats">
       <div class="stat-box"><div class="num">${weekCount}</div><div class="lbl">本周训练</div></div>
-      <div class="stat-box"><div class="num">${Math.round(weekVolume).toLocaleString()}</div><div class="lbl">本周容量 (kg)</div></div>
       <div class="stat-box"><div class="num">${data.sessions.length}</div><div class="lbl">累计训练</div></div>
     </div>
     <button class="btn primary hero-cta" id="hero-start">${trainedToday ? '＋ 再记一次训练' : '＋ 开始今天的训练'}</button>`;
