@@ -280,7 +280,7 @@ function sessionHTML(s, collapsed) {
       <div class="session-head" data-toggle-session="${s.id}">
         <div>
           <div class="title"><span class="caret">▸</span>${esc(s.programName)}${s.goal ? `<span class="goal-tag">${esc(s.goal)}</span>` : ''}</div>
-          <div class="meta">${esc(s.date)} · ${s.exercises.length} 个动作 · 容量 ${Math.round(sessionVolume(s)).toLocaleString()} kg</div>
+          <div class="meta" data-meta="${s.id}">${esc(s.date)} · ${s.exercises.length} 个动作 · 容量 ${Math.round(sessionVolume(s)).toLocaleString()} kg</div>
         </div>
         <button class="btn small danger" data-del-session="${s.id}">删除</button>
       </div>
@@ -337,18 +337,18 @@ function renderExercise(sessionId, ex) {
             data-set-reps="${sessionId}|${ex.id}|${i}"></td>
       <td><input type="number" min="6" max="10" step="0.5" value="${set.rpe ?? ''}" placeholder="RPE"
             data-set-rpe="${sessionId}|${ex.id}|${i}"></td>
-      <td class="e1rm-cell">${e ? round1(e) : '—'}</td>
+      <td class="e1rm-cell" data-e1rm="${sessionId}|${ex.id}|${i}">${e ? round1(e) : '—'}</td>
       <td><button class="btn small danger" data-del-set="${sessionId}|${ex.id}|${i}">×</button></td>
     </tr>`;
   }).join('');
 
   const best = bestSetByE1RM(ex.sets);
   const e1rmLine = best
-    ? `<div class="e1rm-badge">本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）</div>`
-    : '';
+    ? `<div class="e1rm-badge" data-best="${sessionId}|${ex.id}">本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）</div>`
+    : `<div class="e1rm-badge" data-best="${sessionId}|${ex.id}" style="display:none"></div>`;
 
   return `
-    <div class="exercise">
+    <div class="exercise" data-ex="${sessionId}|${ex.id}">
       <div class="exercise-head">
         <span class="name">${esc(ex.name)}</span>
         <button class="btn small danger" data-del-ex="${sessionId}|${ex.id}">删除动作</button>
@@ -432,14 +432,14 @@ function bindSessionEvents() {
     inp.addEventListener('change', () => {
       const [sid, exid, i] = inp.dataset.setWeight.split('|');
       findEx(sid, exid).sets[Number(i)].weight = inp.value;
-      save(); renderSessions();
+      save(); updateSetSummaries(sid, exid);   // 局部更新，不重建 DOM、不丢焦点
     }));
 
   list.querySelectorAll('[data-set-reps]').forEach(inp =>
     inp.addEventListener('change', () => {
       const [sid, exid, i] = inp.dataset.setReps.split('|');
       findEx(sid, exid).sets[Number(i)].reps = inp.value;
-      save(); renderSessions();
+      save(); updateSetSummaries(sid, exid);
     }));
 
   list.querySelectorAll('[data-set-rpe]').forEach(inp =>
@@ -453,6 +453,41 @@ function bindSessionEvents() {
 function findEx(sid, exid) {
   const s = data.sessions.find(x => x.id === sid);
   return s.exercises.find(e => e.id === exid);
+}
+
+// 改一组 weight/reps 后局部更新：避免重建整张列表，保留输入焦点
+function updateSetSummaries(sid, exid) {
+  const s = data.sessions.find(x => x.id === sid);
+  if (!s) return;
+  const ex = s.exercises.find(e => e.id === exid);
+  if (!ex) return;
+
+  // 该动作每行的 ≈1RM 单元格
+  ex.sets.forEach((set, i) => {
+    const cell = document.querySelector(`[data-e1rm="${sid}|${exid}|${i}"]`);
+    if (cell) {
+      const e = est1RM(set.weight, set.reps);
+      cell.textContent = e ? round1(e) : '—';
+    }
+  });
+
+  // 该动作的“本次最佳估算 1RM” badge
+  const best = bestSetByE1RM(ex.sets);
+  const badge = document.querySelector(`[data-best="${sid}|${exid}"]`);
+  if (badge) {
+    if (best) {
+      badge.innerHTML = `本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）`;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // 该 session 头部的容量
+  const meta = document.querySelector(`[data-meta="${sid}"]`);
+  if (meta) {
+    meta.textContent = `${s.date} · ${s.exercises.length} 个动作 · 容量 ${Math.round(sessionVolume(s)).toLocaleString()} kg`;
+  }
 }
 
 /* ---------- 渐进超负荷提示 ---------- */
