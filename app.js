@@ -298,7 +298,12 @@ function sessionHTML(s, collapsed) {
 function renderSessions() {
   fillHistoryFilter();
   const today = todayStr();
-  // 今天的训练始终展开置顶；其余进“训练历史”（默认折叠），数据全部保留
+  // 重渲染前记下当前各卡片的折叠状态，渲染后恢复（避免改一组就把展开的历史折叠回去）
+  const prevCollapsed = {};
+  document.querySelectorAll('#today-list .session, #sessions-list .session')
+    .forEach(el => { prevCollapsed[el.dataset.session] = el.classList.contains('collapsed'); });
+
+  // 今天的训练始终置顶；其余进“训练历史”（默认折叠），数据全部保留
   const todaySessions = data.sessions.filter(s => s.date === today);
   const historySessions = data.sessions.filter(s =>
     s.date !== today && (historyFilter === '全部' || s.programName === historyFilter));
@@ -310,6 +315,12 @@ function renderSessions() {
   document.getElementById('sessions-list').innerHTML = historySessions.length
     ? historySessions.map(s => sessionHTML(s, true)).join('')
     : '<div class="empty">还没有更早的训练记录。</div>';
+
+  // 恢复用户手动切换过的折叠状态（新卡片沿用默认）
+  Object.entries(prevCollapsed).forEach(([id, collapsed]) => {
+    const el = document.querySelector(`.session[data-session="${id}"]`);
+    if (el) el.classList.toggle('collapsed', collapsed);
+  });
 
   bindSessionEvents();
 }
@@ -485,7 +496,13 @@ document.getElementById('copy-last-session').addEventListener('click', () => {
   const programId = document.getElementById('session-program').value;
   const date = document.getElementById('session-date').value || todayStr();
   if (!programId) { alert('请先在“训练项目”中创建项目'); return; }
-  const last = data.sessions.find(s => s.programId === programId);
+  // “上次”= 该项目里最近一次【有记录组数】的训练（按日期），避免复制到刚创建的空 session
+  const matching = data.sessions
+    .filter(s => s.programId === programId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const hasData = s => s.exercises.some(ex => ex.sets.some(set =>
+    Number(set.weight) > 0 || Number(set.reps) > 0));
+  const last = matching.find(hasData) || matching[0];
   if (!last) { alert('该项目还没有历史训练可复制'); return; }
   data.sessions.unshift({
     id: uid(),
@@ -1126,6 +1143,7 @@ document.getElementById('import-file').addEventListener('change', e => {
         throw new Error('文件格式不正确');
       if (!confirm('导入将覆盖当前所有数据，确定继续？')) return;
       data = parsed;
+      normalizeData();   // 补齐缺失字段，兼容旧备份
       save();
       renderPrograms(); renderSessions(); renderTips(); renderStats();
       alert('导入成功！');
@@ -1565,6 +1583,19 @@ function squadErrorCard(msg) {
     手机与电脑连同一 WiFi 后访问。直接双击网页或用纯静态服务器时，社群功能不可用。
   </div></div>`;
 }
+
+/* ---------- 跨午夜 / 重新唤醒：把停留在过去的日期刷新到今天，并刷新分区 ---------- */
+function refreshDateIfStale() {
+  const input = document.getElementById('session-date');
+  // 仅当日期早于今天时才重置（不动用户手动选择的未来日期）
+  if (input.value && input.value < todayStr()) {
+    input.value = todayStr();
+    renderSessions();   // 昨天创建的训练随之归入“训练历史”，今天分区清空待记录
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshDateIfStale();
+});
 
 /* ---------- 初始化（仅渲染首屏“训练”页，其余按需渲染，加快打开速度） ---------- */
 document.getElementById('session-date').value = todayStr();
