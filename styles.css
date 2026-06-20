@@ -97,18 +97,31 @@ body {
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab-btn {
-  padding: 8px 18px;
+  padding: 8px 16px;
   background: transparent;
   border: none;
   color: var(--muted);
   border-radius: 9px;
-  font-size: .92rem;
+  font-size: .9rem;
   font-family: inherit;
   cursor: pointer;
   transition: .2s;
   flex: 0 0 auto;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  line-height: 1;
 }
+.tab-ico {
+  width: 18px; height: 18px;
+  stroke: currentColor; fill: currentColor;
+  flex-shrink: 0;
+  opacity: .9;
+}
+/* 线性图标里的填充元素(圆点/小矩形)默认用 currentColor 填，其余靠 stroke */
+.tab-ico circle[fill="none"], .tab-ico path[fill="none"], .tab-ico rect[fill="none"] { fill: none; stroke: currentColor; }
+.tab-btn.active .tab-ico { opacity: 1; }
 .tab-btn:active { transform: scale(.96); }
 .tab-btn.active {
   background: var(--silver-shimmer);
@@ -703,4 +716,101 @@ textarea { resize: vertical; }
   .row-actions .btn { width: 100%; }
 
   .form-grid { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* ---------- Toast：底部滑入轻量提示 ---------- */
+#toast-host {
+  position: fixed;
+  left: 50%; bottom: 24px;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse; gap: 8px;
+  z-index: 9999;
+  pointer-events: none;
+  max-width: calc(100% - 32px);
+}
+.toast {
+  background: linear-gradient(135deg, #1c222c 0%, #161a22 100%);
+  color: var(--text);
+  border: 1px solid rgba(214,220,230,.18);
+  border-radius: 12px;
+  padding: 11px 16px;
+  font-size: .9rem;
+  font-weight: 500;
+  box-shadow: 0 8px 28px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity .22s ease, transform .26s cubic-bezier(.2,.7,.2,1);
+  pointer-events: auto;
+  max-width: 90vw;
+  line-height: 1.4;
+}
+.toast--in { opacity: 1; transform: translateY(0); }
+.toast--out { opacity: 0; transform: translateY(8px); }
+.toast--success { border-color: rgba(48,209,88,.45); box-shadow: 0 8px 28px rgba(0,0,0,.55), 0 0 14px rgba(48,209,88,.18), inset 0 1px 0 rgba(255,255,255,.06); }
+.toast--error   { border-color: rgba(255,69,58,.55); box-shadow: 0 8px 28px rgba(0,0,0,.55), 0 0 14px rgba(255,69,58,.22), inset 0 1px 0 rgba(255,255,255,.06); }
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity .15s; transform: none !important; }
+}
+
+/* ---------- 空状态卡片 ---------- */
+.empty-card {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 22px 28px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.empty-ico {
+  width: 56px; height: 56px;
+  margin: 0 auto 14px;
+  color: var(--muted);
+  opacity: .55;
+}
+.empty-ico svg { width: 100%; height: 100%; display: block; }
+.empty-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.empty-hint { font-size: .84rem; color: var(--muted); line-height: 1.5; max-width: 320px; margin: 0 auto; }
+.empty-action { margin-top: 16px; padding: 11px 22px; }
+
+/* ---------- PR 创新高徽章 ---------- */
+.pr-tag {
+  display: inline-block;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .5px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  border-radius: 4px;
+  color: var(--silver-1);
+  background: rgba(214,220,230,.18);
+  border: 1px solid rgba(214,220,230,.4);
+  vertical-align: middle;
+  text-shadow: none;
+}
+.pr-tag--solid {
+  background: var(--silver-shimmer);
+  background-size: 300% 100%;
+  background-position: 200% 50%;
+  color: var(--on-primary);
+  border-color: rgba(255,255,255,.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+  animation: silverShimmer 8s linear infinite, prPop .5s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes prPop {
+  0%   { transform: scale(.6); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pr-row .e1rm-cell { color: var(--silver-1); font-weight: 600; }
+.e1rm-badge.is-pr {
+  background: rgba(214,220,230,.06);
+  border-left: 2px solid var(--silver-1);
+  padding-left: 12px;
+}
+.pr-delta {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: .76rem;
+  color: var(--silver-1);
+  opacity: .85;
 }

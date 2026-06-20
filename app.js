@@ -110,6 +110,35 @@ function load() {
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 function save() { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+
+/* ---------- 空状态卡片：含图示 + 标题 + 提示 + 可选行动按钮 ---------- */
+function emptyState({ icon, title, hint, action }) {
+  // icon 是一段已写好的内联 SVG 或 emoji 字符
+  return `<div class="empty-card">
+    <div class="empty-ico" aria-hidden="true">${icon}</div>
+    <div class="empty-title">${esc(title)}</div>
+    ${hint ? `<div class="empty-hint">${esc(hint)}</div>` : ''}
+    ${action ? `<button class="btn primary empty-action" data-empty-action="${esc(action.id)}">${esc(action.label)}</button>` : ''}
+  </div>`;
+}
+
+/* ---------- Toast：替代 alert，不打断操作 ---------- */
+function toast(message, kind) {
+  const host = document.getElementById('toast-host');
+  if (!host) { window.alert(message); return; }   // 极早期/失败兜底
+  const el = document.createElement('div');
+  el.className = 'toast' + (kind ? ' toast--' + kind : '');
+  el.textContent = message;
+  host.appendChild(el);
+  // 入场 → 停留 → 出场 → 移除
+  requestAnimationFrame(() => el.classList.add('toast--in'));
+  const hold = kind === 'error' ? 3600 : 2400;
+  setTimeout(() => {
+    el.classList.remove('toast--in');
+    el.classList.add('toast--out');
+    setTimeout(() => el.remove(), 260);
+  }, hold);
+}
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
@@ -183,7 +212,11 @@ function renderPrograms() {
 
   const list = document.getElementById('programs-list');
   if (!data.programs.length) {
-    list.innerHTML = '<div class="empty">还没有训练项目，添加一个开始吧。</div>';
+    list.innerHTML = emptyState({
+      icon: '<svg viewBox="0 0 48 48"><rect x="8" y="14" width="32" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 14V10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4M24 22v10M19 27h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+      title: '还没有训练项目',
+      hint: '按部位/目标建一个，例如「胸部训练」「腿部训练」',
+    });
     return;
   }
   list.innerHTML = data.programs.map(p => {
@@ -223,7 +256,7 @@ function fillGoalSelect() {
 
 document.getElementById('add-program').addEventListener('click', () => {
   const name = document.getElementById('program-name').value.trim();
-  if (!name) { alert('请输入项目名称'); return; }
+  if (!name) { toast('请输入项目名称', 'error'); return; }
   const goal = document.getElementById('program-goal').value || '增肌';
   const exercises = document.getElementById('program-exercises').value
     .split(/[,，]/).map(s => s.trim()).filter(Boolean);
@@ -240,7 +273,7 @@ document.getElementById('add-program').addEventListener('click', () => {
 function createSession() {
   const programId = document.getElementById('session-program').value;
   const date = document.getElementById('session-date').value || todayStr();
-  if (!programId) { alert('请先在“训练项目”中创建项目'); return; }
+  if (!programId) { toast('请先在“训练项目”中创建项目', 'error'); return; }
   const program = data.programs.find(p => p.id === programId);
   data.sessions.unshift({
     id: uid(),
@@ -361,11 +394,20 @@ function renderSessions() {
 
   document.getElementById('today-list').innerHTML = todaySessions.length
     ? todaySessions.map(s => sessionHTML(s, false)).join('')
-    : '<div class="empty">今天还没有训练，在上方选择项目后点「创建训练」开始记录。</div>';
+    : emptyState({
+        icon: '<svg viewBox="0 0 48 48"><circle cx="10" cy="24" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="38" cy="24" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="15" y="21" width="18" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 20v8M45 20v8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+        title: '今天还没开始',
+        hint: '准备好，按下方按钮开练',
+        action: { id: 'start-today', label: '＋ 开始今天的训练' },
+      });
 
   document.getElementById('sessions-list').innerHTML = historySessions.length
     ? historySessions.map(s => sessionHTML(s, true)).join('')
-    : '<div class="empty">还没有更早的训练记录。</div>';
+    : emptyState({
+        icon: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M24 14v10l7 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>',
+        title: '还没有更早的记录',
+        hint: '坚持记录，几周后这里会满是数据',
+      });
 
   // 恢复用户手动切换过的折叠状态（新卡片沿用默认）
   Object.entries(prevCollapsed).forEach(([id, collapsed]) => {
@@ -376,11 +418,30 @@ function renderSessions() {
   bindSessionEvents();
 }
 
+// 本次 session 之前，该动作历史最佳估算 1RM（用于 PR 判定）
+function historyBest1RM(sessionId, exName) {
+  const cur = data.sessions.find(s => s.id === sessionId);
+  if (!cur) return 0;
+  let max = 0;
+  data.sessions.forEach(s => {
+    if (s.id === sessionId) return;
+    if (s.date > cur.date) return;   // 仅看当前 session 之前(含同日早些)
+    s.exercises.forEach(e => {
+      if (e.name !== exName) return;
+      const b = bestSetByE1RM(e.sets);
+      if (b && b.e1rm > max) max = b.e1rm;
+    });
+  });
+  return max;
+}
+
 function renderExercise(sessionId, ex) {
+  const prevBest = historyBest1RM(sessionId, ex.name);
   const rows = ex.sets.map((set, i) => {
     const e = est1RM(set.weight, set.reps);
+    const isPR = prevBest > 0 && e > prevBest;
     return `
-    <tr>
+    <tr${isPR ? ' class="pr-row"' : ''}>
       <td>${i + 1}</td>
       <td><input type="number" min="0" step="0.5" value="${set.weight ?? ''}" placeholder="kg"
             data-set-weight="${sessionId}|${ex.id}|${i}"></td>
@@ -388,14 +449,15 @@ function renderExercise(sessionId, ex) {
             data-set-reps="${sessionId}|${ex.id}|${i}"></td>
       <td><input type="number" min="6" max="10" step="0.5" value="${set.rpe ?? ''}" placeholder="RPE"
             data-set-rpe="${sessionId}|${ex.id}|${i}"></td>
-      <td class="e1rm-cell" data-e1rm="${sessionId}|${ex.id}|${i}">${e ? round1(e) : '—'}</td>
+      <td class="e1rm-cell" data-e1rm="${sessionId}|${ex.id}|${i}">${e ? round1(e) : '—'}${isPR ? '<span class="pr-tag" title="个人新高">PR</span>' : ''}</td>
       <td><button class="btn small danger" data-del-set="${sessionId}|${ex.id}|${i}">×</button></td>
     </tr>`;
   }).join('');
 
   const best = bestSetByE1RM(ex.sets);
+  const isBestPR = best && prevBest > 0 && best.e1rm > prevBest;
   const e1rmLine = best
-    ? `<div class="e1rm-badge" data-best="${sessionId}|${ex.id}">本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）</div>`
+    ? `<div class="e1rm-badge${isBestPR ? ' is-pr' : ''}" data-best="${sessionId}|${ex.id}">${isBestPR ? '<span class="pr-tag pr-tag--solid">PR</span> ' : ''}本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）${isBestPR ? `<span class="pr-delta">+${round1(best.e1rm - prevBest)}kg vs 历史</span>` : ''}</div>`
     : `<div class="e1rm-badge" data-best="${sessionId}|${ex.id}" style="display:none"></div>`;
 
   return `
@@ -427,6 +489,12 @@ function bindSessionEvents() {
       return null;
     },
   };
+
+  // 空状态行动按钮
+  list.querySelectorAll('[data-empty-action]').forEach(b =>
+    b.addEventListener('click', () => {
+      if (b.dataset.emptyAction === 'start-today') createSession();
+    }));
 
   // 折叠/展开历史训练（点击标题区域，按钮除外）
   list.querySelectorAll('[data-toggle-session]').forEach(head =>
@@ -513,24 +581,36 @@ function updateSetSummaries(sid, exid) {
   const ex = s.exercises.find(e => e.id === exid);
   if (!ex) return;
 
-  // 该动作每行的 ≈1RM 单元格
+  const prevBest = historyBest1RM(sid, ex.name);
+
+  // 该动作每行的 ≈1RM 单元格 + PR 标记
   ex.sets.forEach((set, i) => {
     const cell = document.querySelector(`[data-e1rm="${sid}|${exid}|${i}"]`);
     if (cell) {
       const e = est1RM(set.weight, set.reps);
-      cell.textContent = e ? round1(e) : '—';
+      const isPR = prevBest > 0 && e > prevBest;
+      cell.innerHTML = (e ? round1(e) : '—') + (isPR ? '<span class="pr-tag" title="个人新高">PR</span>' : '');
+      const row = cell.closest('tr');
+      if (row) row.classList.toggle('pr-row', isPR);
     }
   });
 
   // 该动作的“本次最佳估算 1RM” badge
   const best = bestSetByE1RM(ex.sets);
+  const isBestPR = best && prevBest > 0 && best.e1rm > prevBest;
   const badge = document.querySelector(`[data-best="${sid}|${exid}"]`);
   if (badge) {
     if (best) {
-      badge.innerHTML = `本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）`;
+      badge.classList.toggle('is-pr', !!isBestPR);
+      const prHead = isBestPR ? '<span class="pr-tag pr-tag--solid">PR</span> ' : '';
+      const prDelta = isBestPR ? `<span class="pr-delta">+${round1(best.e1rm - prevBest)}kg vs 历史</span>` : '';
+      badge.innerHTML = `${prHead}本次最佳估算 1RM <b>${round1(best.e1rm)} kg</b>（来自 ${best.w}kg × ${best.r} Reps）${prDelta}`;
       badge.style.display = '';
+      // 首次冒出 PR → 一次性 toast 庆贺（同一 session+动作 只贺一次）
+      if (isBestPR) celebratePR(sid, ex.name, best.e1rm);
     } else {
       badge.style.display = 'none';
+      badge.classList.remove('is-pr');
     }
   }
 
@@ -539,6 +619,15 @@ function updateSetSummaries(sid, exid) {
   if (meta) {
     meta.textContent = `${s.date} · ${s.exercises.length} 个动作 · 容量 ${Math.round(sessionVolume(s)).toLocaleString()} kg`;
   }
+}
+
+// 同 session + 同动作只庆贺一次（per 页面会话内存即可，刷新后再创新高再贺）
+const _prCelebrated = new Set();
+function celebratePR(sid, exName, e1rm) {
+  const key = sid + '|' + exName;
+  if (_prCelebrated.has(key)) return;
+  _prCelebrated.add(key);
+  toast(`🏆 PR ${exName} ${round1(e1rm)}kg`, 'success');
 }
 
 /* ---------- 渐进超负荷提示 ---------- */
@@ -581,7 +670,7 @@ function overloadHint(sessionId, exName) {
 document.getElementById('copy-last-session').addEventListener('click', () => {
   const programId = document.getElementById('session-program').value;
   const date = document.getElementById('session-date').value || todayStr();
-  if (!programId) { alert('请先在“训练项目”中创建项目'); return; }
+  if (!programId) { toast('请先在“训练项目”中创建项目', 'error'); return; }
   // “上次”= 该项目里最近一次【有记录组数】的训练（按日期），避免复制到刚创建的空 session
   const matching = data.sessions
     .filter(s => s.programId === programId)
@@ -589,7 +678,7 @@ document.getElementById('copy-last-session').addEventListener('click', () => {
   const hasData = s => s.exercises.some(ex => ex.sets.some(set =>
     Number(set.weight) > 0 || Number(set.reps) > 0));
   const last = matching.find(hasData) || matching[0];
-  if (!last) { alert('该项目还没有历史训练可复制'); return; }
+  if (!last) { toast('该项目还没有历史训练可复制', 'error'); return; }
   data.sessions.unshift({
     id: uid(),
     programId: last.programId,
@@ -604,7 +693,7 @@ document.getElementById('copy-last-session').addEventListener('click', () => {
   });
   save();
   renderSessions();
-  alert('已复制上次「' + last.programName + '」训练，可在此基础上调整。');
+  toast('已复制上次「' + last.programName + '」训练', 'success');
 });
 
 /* ============================================================
@@ -616,7 +705,7 @@ document.getElementById('add-tip').addEventListener('click', () => {
   const title = document.getElementById('tip-title').value.trim();
   const category = document.getElementById('tip-category').value;
   const content = document.getElementById('tip-content').value.trim();
-  if (!title || !content) { alert('请填写标题和内容'); return; }
+  if (!title || !content) { toast('请填写标题和内容', 'error'); return; }
   data.tips.unshift({ id: uid(), title, category, content });
   save();
   document.getElementById('tip-title').value = '';
@@ -1068,7 +1157,7 @@ function renderAnatomy() {
     const saveBtn = document.getElementById('anat-url-save');
     if (saveBtn) saveBtn.addEventListener('click', () => {
       const url = to3DEmbed(document.getElementById('anat-url-input').value);
-      if (!url) { alert('链接无法识别，请粘贴 Sketchfab 模型链接或 iframe 代码'); return; }
+      if (!url) { toast('链接无法识别，请粘贴 Sketchfab 链接或 iframe 代码', 'error'); return; }
       anat3dUrl = url; localStorage.setItem('dxl-anat3d', url); renderAnatomy();
     });
   }
@@ -1232,9 +1321,9 @@ document.getElementById('import-file').addEventListener('change', e => {
       normalizeData();   // 补齐缺失字段，兼容旧备份
       save();
       renderPrograms(); renderSessions(); renderTips(); renderStats();
-      alert('导入成功！');
+      toast('导入成功', 'success');
     } catch (err) {
-      alert('导入失败：' + err.message);
+      toast('导入失败：' + err.message, 'error');
     } finally {
       e.target.value = '';
     }
@@ -1458,7 +1547,7 @@ document.getElementById('pf-save').addEventListener('click', () => {
   };
   save();
   renderDietResult();
-  if (!computeNutrition(data.profile)) alert('请完整填写年龄、身高、体重');
+  if (!computeNutrition(data.profile)) toast('请完整填写年龄、身高、体重', 'error');
 });
 
 function renderFood(query) {
@@ -1562,23 +1651,23 @@ function readSquadName() {
 
 async function doCreateOrJoin(kind) {
   const userName = readSquadName();
-  if (!userName) { alert('请先填写你的昵称'); return; }
+  if (!userName) { toast('请先填写你的昵称', 'error'); return; }
   try {
     let result;
     if (kind === 'create') {
       const name = document.getElementById('squad-create-name').value.trim();
-      if (!name) { alert('请填写小队名称'); return; }
+      if (!name) { toast('请填写小队名称', 'error'); return; }
       result = await squadApi('/api/squad/create', { name, userId: squadIdentity.userId, userName });
     } else {
       const code = document.getElementById('squad-join-code').value.trim().toUpperCase();
-      if (!code) { alert('请填写邀请码'); return; }
+      if (!code) { toast('请填写邀请码', 'error'); return; }
       result = await squadApi('/api/squad/join', { code, userId: squadIdentity.userId, userName });
     }
     squadIdentity.squadId = result.squad.id; saveSquadIdentity();
     currentSquad = result.squad;
     renderSquadView();
   } catch (e) {
-    alert(e.message);
+    toast(e.message, 'error');
   }
 }
 
@@ -1648,8 +1737,8 @@ async function doSavePlan() {
     });
     currentSquad = squad;
     renderSquadView();
-    alert('已保存，队员刷新即可看到。');
-  } catch (e) { alert(e.message); }
+    toast('已保存，队员刷新即可看到', 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function doLeaveSquad() {
