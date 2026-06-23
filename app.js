@@ -603,6 +603,7 @@ function renderExercise(sessionId, ex) {
       </table>${e1rmLine}` : '<div class="hint" style="margin:0">还没有记录组数</div>'}
       <div class="set-add-row">
         <button class="btn small primary" data-add-set="${sessionId}|${ex.id}">+ 添加一组</button>
+        <button class="btn small" data-rest-start>⏱ 休息</button>
       </div>
     </div>`;
 }
@@ -624,6 +625,10 @@ function bindSessionEvents() {
     b.addEventListener('click', () => {
       if (b.dataset.emptyAction === 'start-today') createSession();
     }));
+
+  // 组间休息：点 ⏱休息 启动 90s 计时
+  list.querySelectorAll('[data-rest-start]').forEach(b =>
+    b.addEventListener('click', () => restTimer.start(90)));
 
   // 折叠/展开历史训练（点击标题区域，按钮除外）
   list.querySelectorAll('[data-toggle-session]').forEach(head =>

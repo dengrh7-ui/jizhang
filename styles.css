@@ -814,3 +814,32 @@ textarea { resize: vertical; }
   color: var(--silver-1);
   opacity: .85;
 }
+
+/* ---------- 组间休息计时器悬浮条 ---------- */
+#rest-timer {
+  position: fixed;
+  left: 50%; bottom: 84px;
+  width: min(440px, calc(100% - 24px));
+  background: linear-gradient(135deg, #1c222c 0%, #161a22 100%);
+  border: 1px solid rgba(214,220,230,.22);
+  border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+  padding: 12px 14px 10px;
+  z-index: 9998;
+  opacity: 0;
+  transform: translate(-50%, 16px);
+  pointer-events: none;
+  transition: opacity .24s ease, transform .26s cubic-bezier(.2,.7,.2,1);
+}
+#rest-timer.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.rest-progress { height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; margin-bottom: 10px; }
+.rest-bar-fill { display: block; height: 100%; width: 100%; background: var(--silver-shimmer); background-size: 300% 100%; background-position: 200% 50%; transition: width 1s linear; }
+.rest-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rest-time { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .5px; color: var(--silver-1); min-width: 78px; text-align: center; }
+.rest-btn { padding: 7px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--text); font-size: .85rem; font-family: inherit; cursor: pointer; transition: .15s; }
+.rest-btn:active { transform: scale(.95); }
+.rest-toggle { min-width: 44px; font-size: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+  #rest-timer { transition: opacity .15s; }
+  .rest-bar-fill { transition: none; }
+}
