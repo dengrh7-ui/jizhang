@@ -9,22 +9,19 @@
 
 ## 用户决策（已确认）
 
-- **触发**：自动 + 手动 两者都要。
+- **触发**：**仅手动**（取消自动启动，避免误触/打扰）。
 - **时长**：固定默认 90 秒，运行时可 ±30s 临时调整。
 - **显示**：底部悬浮条。
+- **提示音**：归零时 震动 + 短提示音 + toast。
 
 ## 行为规格
 
 ### 全局单实例
-同一时刻只有一个计时器在跑。再次触发（自动或手动）会**重置**为新的 90s 并重新开始。
+同一时刻只有一个计时器在跑。再次点击"休息"会**重置**为新的 90s 并重新开始。
 
-### 自动启动
-- 在 **今天的训练**（`session.date === todayStr()`）里，某组的 **Reps 输入** `change` 且值为正数时，自动 `restTimer.start()`。
-- 编辑 **历史记录**（非今日 session）**不触发**，避免修改旧数据时被打扰。
-- 仅 Reps 触发（不在 weight 上触发），避免一组录入触发两次。
-
-### 手动启动
+### 手动启动（唯一触发方式）
 - 每个动作的"+添加一组"行旁新增 `⏱ 休息` 按钮，点击立即 `start()`（重置为 90s）。
+- 不做任何自动启动（reps/weight 输入不触发计时）。
 
 ### 底部悬浮条
 独立于训练列表 DOM（作为 `<body>` 直接子节点的容器），不受 `renderSessions` 重渲染 / 切 tab / 滚动影响。
@@ -58,8 +55,7 @@
 |---|---|---|
 | `restTimer`（模块/闭包对象） | start / pause / resume / skip / adjust / 内部 tick；维护 `endAt`、`remainingMs`、`paused`、`intervalId` | `toast()`、DOM 悬浮条节点 |
 | 悬浮条 DOM（`#rest-timer`） | 纯展示 + 控制按钮，事件委托到 restTimer | restTimer |
-| `renderExercise` 改动 | 渲染 `⏱ 休息` 按钮（`data-rest-start`） | restTimer.start |
-| reps `change` 处理器改动 | 今日 session 且 reps>0 → restTimer.start | restTimer.start, todayStr |
+| `renderExercise` 改动 | 渲染 `⏱ 休息` 按钮（`data-rest-start`），事件在 bindSessionEvents 绑定 | restTimer.start |
 
 接口：`restTimer.start(seconds=90)` / `.pause()` / `.resume()` / `.skip()` / `.adjust(deltaSeconds)`。展示通过 restTimer 内部的 `paint()` 更新悬浮条；外部只调上述方法。
 
@@ -81,6 +77,6 @@
 - +30 → 02:00；−30 → 01:00。
 - 跳过 → 悬浮条移除、interval 清除。
 - 暂停后剩余不变、继续后继续递减（用可注入的 now 或快进 endAt 验证）。
-- 今日 session reps change → 自动 start；历史 session reps change → **不**触发。
+- 点 `⏱ 休息` 按钮 → start；reps/weight change **不**触发计时（确认无自动启动）。
 - 归零 → toast('休息结束') + 悬浮条移除。
 - 既有回归：局部更新/焦点保留/PR/streak 不受影响。
