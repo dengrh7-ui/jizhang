@@ -139,6 +139,135 @@ function toast(message, kind) {
     setTimeout(() => el.remove(), 260);
   }, hold);
 }
+/* ---------- 组间休息计时器（全局单例，纯内存） ---------- */
+const restTimer = (() => {
+  let endAt = 0;          // 目标结束时间戳(ms)
+  let remaining = 0;      // 暂停时保存的剩余(ms)
+  let totalMs = 90000;    // 当前这轮总时长(进度条比例用)
+  let paused = false;
+  let running = false;
+  let intervalId = null;
+  const DEFAULT = 90;
+
+  const api = {
+    _now: () => Date.now(),
+    isRunning: () => running,
+    remainingMs: () => paused ? remaining : Math.max(0, endAt - api._now()),
+
+    start(seconds = DEFAULT) {
+      clearInterval(intervalId);
+      running = true; paused = false;
+      totalMs = seconds * 1000;
+      endAt = api._now() + totalMs;
+      ensureBar();
+      paint();
+      intervalId = setInterval(() => api._tick(), 250);
+    },
+    pause() {
+      if (!running || paused) return;
+      remaining = api.remainingMs();
+      paused = true;
+      clearInterval(intervalId);
+      paint();
+    },
+    resume() {
+      if (!running || !paused) return;
+      endAt = api._now() + remaining;
+      paused = false;
+      intervalId = setInterval(() => api._tick(), 250);
+      paint();
+    },
+    adjust(deltaSeconds) {
+      if (!running) return;
+      if (paused) {
+        remaining = Math.max(0, remaining + deltaSeconds * 1000);
+        if (remaining === 0) return finish();
+        if (remaining > totalMs) totalMs = remaining;
+      } else {
+        endAt += deltaSeconds * 1000;
+        if (api.remainingMs() === 0) return finish();
+        if (api.remainingMs() > totalMs) totalMs = api.remainingMs();
+      }
+      paint();
+    },
+    skip() { teardown(); },
+
+    _tick() {
+      if (!running || paused) return;
+      if (api.remainingMs() <= 0) return finish();
+      paint();
+    },
+  };
+
+  function finish() {
+    teardown();
+    try { navigator.vibrate && navigator.vibrate([200]); } catch (e) {}
+    beep();
+    toast('休息结束', 'success');
+  }
+  function teardown() {
+    running = false; paused = false;
+    clearInterval(intervalId); intervalId = null;
+    const bar = document.getElementById('rest-timer');
+    if (bar) bar.classList.remove('on');
+  }
+  function beep() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880; osc.type = 'sine';
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.32);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.34);
+    } catch (e) { /* 移动端可能拦截，静默 */ }
+  }
+  function fmt(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+  function ensureBar() {
+    const bar = document.getElementById('rest-timer');
+    if (!bar) return;
+    bar.classList.add('on');
+    bar.innerHTML = `
+      <div class="rest-progress"><span class="rest-bar-fill"></span></div>
+      <div class="rest-row">
+        <button class="rest-btn" data-rest="minus">−30</button>
+        <span class="rest-time">--:--</span>
+        <button class="rest-btn rest-toggle" data-rest="toggle">⏸</button>
+        <button class="rest-btn" data-rest="skip">跳过 ✕</button>
+        <button class="rest-btn" data-rest="plus">+30</button>
+      </div>`;
+    bar.onclick = (e) => {
+      const b = e.target.closest('[data-rest]'); if (!b) return;
+      const act = b.dataset.rest;
+      if (act === 'minus') api.adjust(-30);
+      else if (act === 'plus') api.adjust(30);
+      else if (act === 'skip') api.skip();
+      else if (act === 'toggle') paused ? api.resume() : api.pause();
+    };
+  }
+  function paint() {
+    const bar = document.getElementById('rest-timer');
+    if (!bar || !bar.classList.contains('on')) return;
+    const rem = api.remainingMs();
+    const t = bar.querySelector('.rest-time');
+    if (t) t.textContent = fmt(rem);
+    const fill = bar.querySelector('.rest-bar-fill');
+    if (fill) fill.style.width = Math.max(0, Math.min(100, rem / totalMs * 100)) + '%';
+    const tog = bar.querySelector('.rest-toggle');
+    if (tog) tog.textContent = paused ? '▶' : '⏸';
+  }
+
+  return api;
+})();
+window.restTimer = restTimer;   // 暴露便于控制台调试/测试
+
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
